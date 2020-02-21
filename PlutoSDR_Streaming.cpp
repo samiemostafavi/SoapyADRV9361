@@ -741,6 +741,7 @@ int tx_streamer::start(const int flags,
     // re-create buffer
     buf = iio_device_create_buffer(dev, buf_size, false);
 
+
     if (!buf) {
 	SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to create buffer!");
 	throw std::runtime_error("Unable to create buffer!\n");
