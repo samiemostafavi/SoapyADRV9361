@@ -3,8 +3,8 @@
 ## Installation instructions
 
 ```
-git clone https://github.com/pothosware/SoapyPlutoSDR
-cd SoapyPlutoSDR
+git clone git@github.com:samiemostafavi/SoapyADRV9361.git
+cd SoapyADRV9361
 mkdir build
 cd build
 cmake ..
@@ -18,10 +18,3 @@ sudo make install
 - [libad9361](https://github.com/analogdevicesinc/libad9361-iio)
 - [SoapySDR](https://github.com/pothosware/SoapySDR)
 
-## Documentation
-
-* https://github.com/pothosware/SoapyPlutoSDR/wiki
-
-## Licensing information
-
-GNU LESSER GENERAL PUBLIC LICENSE Version 2.1, February 1999
