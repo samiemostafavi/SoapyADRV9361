@@ -18,6 +18,23 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include <stdio.h>      /* for printf() and fprintf() */
+#include <sys/socket.h> /* for socket() and bind() */
+#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <stdlib.h>     /* for atoi() and exit() */
+#include <string.h>     /* for memset() */
+#include <unistd.h>     /* for close() */
+#include <pthread.h>
+#include <errno.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <sys/resource.h>
+#include <sys/mman.h>
+#include <signal.h>
+
+
+
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Logger.hpp>
 #include <SoapySDR/Formats.hpp>
@@ -44,8 +61,10 @@ private:
     std::atomic_flag lock_state = ATOMIC_FLAG_INIT;
 };
 
-typedef struct {
-  
+typedef struct 
+{
+	int sock = 0;
+
 	uint64_t txTimestampNS = 0;
 	int txSamplingFrequency;
 	int64_t txDifTimestampNS = 0;
@@ -54,13 +73,15 @@ typedef struct {
 	int rxSamplingFrequency;
 	int64_t rxTimestampDif = 0;
 
+	struct sockaddr_in ClntAddr;
+
 } pluto_handler_t;
 
 class rx_streamer {
 	public:
 		rx_streamer(const iio_device *dev, const plutosdrStreamFormat format, const std::vector<size_t> &channels, const SoapySDR::Kwargs &args, pluto_handler_t* ph);
 		~rx_streamer();
-		size_t recv(void * const *buffs,
+		size_t receive(void * const *buffs,
 				const size_t numElems,
 				int &flags,
 				long long &timeNs,
@@ -81,8 +102,8 @@ class rx_streamer {
         	pluto_handler_t* phandler;
 	private:
 
-		void set_buffer_size(const size_t _buffer_size);
-        void set_mtu_size(const size_t mtu_size);
+		void set_buffer_size(const int _buffer_size);
+        	void set_mtu_size(const int mtu_size);
 
 		bool has_direct_copy();
 
@@ -123,7 +144,7 @@ class tx_streamer {
 		const iio_device  *dev;
 		const plutosdrStreamFormat format;
 		
-		size_t buf_size;
+		size_t buffer_size;
 		size_t items_in_buf;
 		bool direct_copy;
 		bool fast_timestamp_en;
@@ -352,12 +373,6 @@ class SoapyPlutoSDR : public SoapySDR::Device{
         std::unique_ptr<tx_streamer> tx_stream;
 
         pluto_handler_t* phandler;
-	
-	iio_device *dev_cl2;
-	iio_device *rx_dev_cl2;
-	iio_device *tx_dev_cl2;
-	iio_channel *rxChannel_cl2;
-	iio_channel *txChannel_cl2;
 };
 
 

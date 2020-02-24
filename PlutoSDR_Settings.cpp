@@ -42,32 +42,6 @@ SoapyPlutoSDR::SoapyPlutoSDR( const SoapySDR::Kwargs &args ):
 	
 	phandler = (pluto_handler_t*) malloc(sizeof(pluto_handler_t));
   	bzero(phandler, sizeof(pluto_handler_t));
-	
-	//Create context 2 for client 2
-	if(ctx_cl2 == nullptr)
-        {
-          if(args.count("uri") != 0) {
-
-                  ctx_cl2 = iio_create_context_from_uri(args.at("uri").c_str());
-
-          }else if(args.count("hostname")!=0){
-                  ctx_cl2 = iio_create_network_context(args.at("hostname").c_str());
-          }else{
-                  ctx_cl2 = iio_create_default_context();
-          }
-        }
-
-        if (ctx_cl2 == nullptr) 
-	{
-                SoapySDR_logf(SOAPY_SDR_ERROR, "Pluto driver: Could not create context 2.");
-                throw std::runtime_error("Pluto driver: Could not create context 2");
-        }
-
-        dev_cl2 = iio_context_find_device(ctx_cl2, "ad9361-phy");
-        rx_dev_cl2 = iio_context_find_device(ctx_cl2, "cf-ad9361-lpc");
-        tx_dev_cl2 = iio_context_find_device(ctx_cl2, "cf-ad9361-dds-core-lpc");	
-	rxChannel_cl2 = iio_device_get_channel(rx_dev_cl2, 0);
-	txChannel_cl2 = iio_device_get_channel(tx_dev_cl2, 0);
 }
 
 SoapyPlutoSDR::~SoapyPlutoSDR(void)
@@ -382,6 +356,8 @@ std::vector<std::string> SoapyPlutoSDR::listAntennas( const int direction, const
 
 void SoapyPlutoSDR::setAntenna( const int direction, const size_t channel, const std::string &name )
 {
+	return;
+	
    if (direction == SOAPY_SDR_RX) {
        std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 		iio_channel_attr_write(iio_device_find_channel(dev, "voltage0", false), "rf_port_select", name.c_str());
@@ -437,6 +413,8 @@ bool SoapyPlutoSDR::hasGainMode(const int direction, const size_t channel) const
 
 void SoapyPlutoSDR::setGainMode( const int direction, const size_t channel, const bool automatic )
 {
+	return;
+	
 	gainMode = automatic;
 	if(direction==SOAPY_SDR_RX){
         std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
@@ -482,6 +460,8 @@ void SoapyPlutoSDR::setGain( const int direction, const size_t channel, const do
 
 void SoapyPlutoSDR::setGain( const int direction, const size_t channel, const std::string &name, const double value )
 {
+	return;
+	
 	this->setGain(direction,channel,value);
 }
 
@@ -522,6 +502,8 @@ SoapySDR::Range SoapyPlutoSDR::getGainRange( const int direction, const size_t c
 
 void SoapyPlutoSDR::setFrequency( const int direction, const size_t channel, const std::string &name, const double frequency, const SoapySDR::Kwargs &args )
 {
+	return;
+	
 	long long freq = (long long)frequency;
 	if(direction==SOAPY_SDR_RX){
 
@@ -590,6 +572,8 @@ SoapySDR::RangeList SoapyPlutoSDR::getFrequencyRange( const int direction, const
  ******************************************************************/
 void SoapyPlutoSDR::setSampleRate( const int direction, const size_t channel, const double rate )
 {
+	return;
+
 	long long samplerate =(long long) rate;
 
 	if(direction==SOAPY_SDR_RX){
@@ -686,6 +670,8 @@ std::vector<double> SoapyPlutoSDR::listSampleRates( const int direction, const s
 
 void SoapyPlutoSDR::setBandwidth( const int direction, const size_t channel, const double bw )
 {
+	return;
+	
 	long long bandwidth = (long long) bw;
 	if(direction==SOAPY_SDR_RX){
         std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);

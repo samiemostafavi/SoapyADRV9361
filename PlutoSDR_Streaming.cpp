@@ -10,12 +10,18 @@
 #include <unistd.h>
 #include <pthread.h>
 
-
 // Need to be a power of 2 for maximum efficiency ?
 # define DEFAULT_RX_BUFFER_SIZE (1 << 16)
 # define WRITE_RXSAMPLES_FILE 0
 
+#define SERV_PORT 50707
+
+const int ABUFF_SIZE = 15*1024;
+
 uint64_t reg_timeNs = 0;
+
+char rx_buffer[ABUFF_SIZE*4];
+char tx_buffer[ABUFF_SIZE*4];
 
 std::vector<std::string> SoapyPlutoSDR::getStreamFormats(const int direction, const size_t channel) const
 {
@@ -223,11 +229,10 @@ int SoapyPlutoSDR::readStream(
     //the spin_mutex is especially very useful here for minimum overhead !
     std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 
-    if (IsValidRxStreamHandle(handle)) {
-        return int(this->rx_stream->recv(buffs, numElems, flags, timeNs, timeoutUs));
-    } else {
+    if (IsValidRxStreamHandle(handle))
+        return int(this->rx_stream->receive(buffs, numElems, flags, timeNs, timeoutUs));
+    else
         return SOAPY_SDR_NOT_SUPPORTED;
-    }
 }
 
 int SoapyPlutoSDR::writeStream(
@@ -256,23 +261,14 @@ int SoapyPlutoSDR::readStreamStatus(
 		const long timeoutUs)
 {
 	//return SOAPY_SDR_NOT_SUPPORTED;
-	
 	//printf("[SoapyPluto] Monitoring %s for underflows/overflows\n",iio_device_get_name(dev));
-
-	int ret;
-	int result = 0;
-	uint32_t val;
-		
-	/* Give the main thread a moment to start the DMA */
-        sleep(1);
 	//printf("[SoapyPluto][rx_streamer] RX dif timestamp: %lld, TX dif timestamp: %lld \n",phandler->rxTimestampDif,phandler->txDifTimestampNS);
 
-	return result;
+	return 0;
 }
 
 void rx_streamer::set_buffer_size_by_samplerate(const size_t samplerate) 
 {
-
     //Adapt buffer size (= MTU) as a tradeoff to minimize readStream overhead but at
     //the same time allow realtime applications. Keep it a power of 2 which seems to be better.
     //so try to target very roughly 60fps [30 .. 100] readStream calls / s for realtime applications.
@@ -280,13 +276,12 @@ void rx_streamer::set_buffer_size_by_samplerate(const size_t samplerate)
 
     int power_of_2_nb_samples = 0;
 
-    while (rounded_nb_samples_per_call > (1 << power_of_2_nb_samples)) {
+    while (rounded_nb_samples_per_call > (1 << power_of_2_nb_samples)) 
+    {
         power_of_2_nb_samples++;
     }
 
-    //this->set_buffer_size(1 << power_of_2_nb_samples);
-    //this->set_buffer_size(64*1024); // this is min
-    this->set_buffer_size(64*1024+4); 
+    this->set_buffer_size(1 << power_of_2_nb_samples);
 
     SoapySDR_logf(SOAPY_SDR_INFO, "Auto setting Buffer Size: %lu", (unsigned long)buffer_size);
 
@@ -299,10 +294,9 @@ void rx_streamer::set_buffer_size_by_samplerate(const size_t samplerate)
     SoapySDR_logf(SOAPY_SDR_INFO, "Auto setting buffer size done");
 }
 
-void rx_streamer::set_mtu_size(const size_t mtu_size) {
-
+void rx_streamer::set_mtu_size(const int mtu_size) 
+{
     this->mtu_size = mtu_size;
-
     SoapySDR_logf(SOAPY_SDR_INFO, "Set MTU Size: %lu", (unsigned long)mtu_size);
 }
 
@@ -314,43 +308,21 @@ rx_streamer::rx_streamer(const iio_device *_dev, const plutosdrStreamFormat _for
 	dev(_dev), buffer_size(DEFAULT_RX_BUFFER_SIZE), buf(nullptr), format(_format), mtu_size(DEFAULT_RX_BUFFER_SIZE), phandler(ph)
 
 {
-	if (dev == nullptr) {
+	if (dev == nullptr) 
+	{
 		SoapySDR_logf(SOAPY_SDR_ERROR, "cf-ad9361-lpc not found!");
 		throw std::runtime_error("cf-ad9361-lpc not found!");
 	}
-	unsigned int nb_channels = iio_device_get_channels_count(dev), i;
-	for (i = 0; i < nb_channels; i++)
-		iio_channel_disable(iio_device_get_channel(dev, i));
 
-	//default to channel 0, if none were specified
-	const std::vector<size_t> &channelIDs = channels.empty() ? std::vector<size_t>{0} : channels;
-
-	for (i = 0; i < channelIDs.size() * 2; i++) {
-		struct iio_channel *chn = iio_device_get_channel(dev, i);
-		iio_channel_enable(chn);
-		channel_list.push_back(chn);
-	}
-
-	printf("[SoapyPluto][rx_steamer] cf-ad9361-lpc number of channels: %d \n",channel_list.size());
-
-	if ( args.count( "bufflen" ) != 0 )
-	{
-		try
-		{
-			size_t bufferLength = std::stoi(args.at("bufflen"));
-			if (bufferLength > 0)
-				this->set_buffer_size(bufferLength);
-		}
-		catch (const std::invalid_argument &){}
-	}
-	else
-	{
-		long long samplerate;
-		iio_channel_attr_read_longlong(iio_device_find_channel(dev, "voltage0", false),"sampling_frequency",&samplerate);
-		this->set_buffer_size_by_samplerate(samplerate);
-
-	}
+	// Set the buffer size by sample rate
+	/*long long samplerate;
+	iio_channel_attr_read_longlong(iio_device_find_channel(dev, "voltage0", false),"sampling_frequency",&samplerate);
+	this->set_buffer_size_by_samplerate(samplerate);*/
 	
+	// Set the buffer size manually
+	set_buffer_size(ABUFF_SIZE);
+    	set_mtu_size(ABUFF_SIZE);
+
 #if WRITE_RXSAMPLES_FILE
         fileOutputDebug = fopen("/home/warpadmin/ad9361-plutosdr.bin" , "w" );
 #endif
@@ -362,16 +334,6 @@ rx_streamer::rx_streamer(const iio_device *_dev, const plutosdrStreamFormat _for
 
 rx_streamer::~rx_streamer()
 {
-	if (buf) 
-	{
-        	iio_buffer_cancel(buf);
-       		iio_buffer_destroy(buf);
-    	}
-
-    	for (unsigned int i = 0; i < channel_list.size(); ++i) 
-	{
-        	iio_channel_disable(channel_list[i]);
-    	}
 
 #if WRITE_RXSAMPLES_FILE
     	fclose(fileOutputDebug);
@@ -379,20 +341,20 @@ rx_streamer::~rx_streamer()
 
 }
 
-size_t rx_streamer::recv(void * const *buffs,
-		const size_t numElems,
-		int &flags,
-		long long &timeNs,
-		const long timeoutUs)
+size_t rx_streamer::receive(void * const *buffs,
+			 const size_t numElems,
+			 int &flags,
+			 long long &timeNs,
+			 const long timeoutUs)
 {
 	if(items_in_buffer <= 0) 
 	{
-		if(!buf) 
+		/*if(phandler->sock==0)
 	    	{
 			// rx_streamer has already stopped but someone wants some samples
 		    	return 0;
-	    	}
-	    	ssize_t ret = iio_buffer_refill(buf);
+	    	}*/
+	    	ssize_t ret = recv(phandler->sock, rx_buffer, ABUFF_SIZE*4, 0);
 	    	if(ret < 0)
 	    	{
 	       		printf("rx_streamer: iio_buffer_refill error. \n");
@@ -403,48 +365,36 @@ size_t rx_streamer::recv(void * const *buffs,
 		// We save the timestamp and modify the items_in_buffer
 		if(fast_timestamp_en)
 		{
-			// fix the p_end pointer if the timestamp is there
-			char* p_end = (char*)(iio_buffer_end(buf) - 8);    // The timestamp is 8 bytes and the pointer here points to 1 byte.
-			// Read the RX timestamp
-			uint64_t* rx_timestamp_pointer = (uint64_t*)p_end;
-			//printf("RX timestamp read: %llu\n",*rx_timestamp_pointer);
-			//printf("rx dif ts: %lld\n",phandler->rxTimestampNS - *rx_timestamp_pointer);
+			// Read the RX timestamp and tx_dif_timestamp
+	                uint64_t* rx_timestamp_pointer = (uint64_t*)(rx_buffer+(this->buffer_size*4)-8);
+			//printf("%lld\n",phandler->rxTimestampDif);
 			phandler->rxTimestampNS = *rx_timestamp_pointer;
-			// timestamp reading is done
-			// modify the items_in_buffer number so the rest of the code doesnt take the timestamp
 			ret = ret - 8;
 		
 			if(difts_piggy_en)
 			{
-				// fix the p_end pointer if the timestamp is there
-				p_end = p_end - 8;    			// The timestamp is 8 bytes and the pointer here points to 1 byte.
-				// Read the RX timestamp
-				uint64_t* txdif_timestamp_pointer = (uint64_t*)p_end;
-				//printf("RX timestamp read: %llu\n",*rx_timestamp_pointer);
-				if(*txdif_timestamp_pointer != -10)
-					phandler->txDifTimestampNS = *txdif_timestamp_pointer;
+        	        	int64_t* tx_dif_timestamp_pointer = (int64_t*)(rx_buffer+(this->buffer_size*4)-16);
+				if(*tx_dif_timestamp_pointer != -10)
+					phandler->txDifTimestampNS = *tx_dif_timestamp_pointer;
 				
 				// timestamp reading is done
 				// modify the items_in_buffer number so the rest of the code doesnt take the timestamp
 				ret = ret - 8;
 			}
-	    
 		}
 
 		// Read and save the tx dif timestamp in the last 8-4 bytes of the buffer.
-	    	items_in_buffer = (unsigned long)ret / iio_buffer_step(buf);
+	    	items_in_buffer = (unsigned long)ret / 4;
 	    	byte_offset = 0;
 	}
 
 	size_t items = std::min(items_in_buffer,numElems);
 			
-	
-	ptrdiff_t buf_step = iio_buffer_step(buf);
-	if (direct_copy) 
+	if(direct_copy)
 	{
 		// optimize for single RX, 2 channel (I/Q), same endianess direct copy
 		// note that RX is 12 bits LSB aligned, i.e. fullscale 2048
-		uint8_t *src = (uint8_t *)iio_buffer_start(buf) + byte_offset;
+		uint8_t *src = (uint8_t *)rx_buffer + byte_offset;
 		int16_t const *src_ptr = (int16_t *)src;
 
 		if (format == PLUTO_SDR_CS16) 
@@ -496,51 +446,12 @@ size_t rx_streamer::recv(void * const *buffs,
 				dst_cs8++;
 			}
 		}
-		
-	}
-	else {
-		int16_t conv = 0, *conv_ptr = &conv;
-
-		for (unsigned int i = 0; i < channel_list.size(); i++) 
+		else
 		{
-			iio_channel *chn = channel_list[i];
-			unsigned int index = i / 2;
-		
-			uint8_t *src = (uint8_t *)iio_buffer_first(buf, chn) + byte_offset;
-			int16_t const *src_ptr = (int16_t *)src;
-
-			if (format == PLUTO_SDR_CS16) 
-			{
-				int16_t *dst_cs16 = (int16_t *)buffs[index];
-
-				for (size_t j = 0; j < items; ++j) {
-					iio_channel_convert(chn, conv_ptr, src_ptr);
-					src_ptr += buf_step;
-					dst_cs16[j * 2 + i] = conv;
-				}
-			}
-			else if (format == PLUTO_SDR_CF32) 
-			{
-				float *dst_cf32 = (float *)buffs[index];
-
-				for (size_t j = 0; j < items; ++j) {
-					iio_channel_convert(chn, conv_ptr, src_ptr);
-					src_ptr += buf_step;
-					dst_cf32[j * 2 + i] = float(conv) / 2048.0f;
-				}
-			}
-			else if (format == PLUTO_SDR_CS8) 
-			{
-				int8_t *dst_cs8 = (int8_t *)buffs[index];
-
-				for (size_t j = 0; j < items; ++j) {
-					iio_channel_convert(chn, conv_ptr, src_ptr);
-					src_ptr += buf_step;
-					dst_cs8[j * 2 + i] = int8_t(conv >> 4);
-				}
-			}
-			
+			SoapySDR_logf(SOAPY_SDR_ERROR, "Unknown RX format");
+	                throw std::runtime_error("Unknown RX format");
 		}
+		
 	}
 
 	// timestamp handling
@@ -549,14 +460,14 @@ size_t rx_streamer::recv(void * const *buffs,
         	phandler->rxTimestampDif = phandler->rxTimestampNS - reg_timeNs;
         	reg_timeNs = phandler->rxTimestampNS;
 	}
-	
+
         // interpolate the timestamp for each data chunk read
         int sampling_freq = phandler->rxSamplingFrequency;
         // the rate of the stream is 4 bytes ((i,q) == (16 bits, 16 bits)) every 1e9/SAMPLING_FREQUENCY nanoseconds.
         double evr = (double)1e9/(double)sampling_freq;
 
         // how much bytes remain in the buffer
-        size_t bytes_remain = (items_in_buffer-items) * iio_buffer_step(buf);
+        size_t bytes_remain = (items_in_buffer-items) * 4;
         
         // timeNs_sub is the value calculated and should be subtracted from reg_timeNs based on the interpolateion
         uint64_t timeNs_sub = (double)(bytes_remain)/(double)4*evr;
@@ -566,7 +477,7 @@ size_t rx_streamer::recv(void * const *buffs,
 	//printf("New RX timestamp: %llu\n",timeNs);
 
 	items_in_buffer -= items;
-	byte_offset += items * iio_buffer_step(buf);
+	byte_offset += items * 4;
 
 	//printf("rx_streamer: New RX items: %d, timestamp: %llu\n",items,timeNs);
 
@@ -578,96 +489,97 @@ int rx_streamer::start(const int flags,
 		const long long timeNs,
 		const size_t numElems)
 {
-    //force proper stop before
-    stop(flags, timeNs);
+	//force proper stop before
+    	stop(flags, timeNs);
     
-    SoapySDR_logf(SOAPY_SDR_INFO, "rX_Streamer::start re-create buffer");
+    	SoapySDR_logf(SOAPY_SDR_INFO, "rX_Streamer::start re-create socket");
 
-    // re-create buffer
-    buf = iio_device_create_buffer(dev, buffer_size, false);
+	// re-create socket
+	struct sockaddr_in ServAddr;
+        memset(&ServAddr, 0, sizeof(ServAddr));
+        ServAddr.sin_family = AF_INET;                  /* Internet address family */
+        ServAddr.sin_addr.s_addr = htonl(INADDR_ANY);   /* Any incoming interface */
+        ServAddr.sin_port = htons(SERV_PORT);           /* Local port */
 
-    if (!buf) {
-	SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to create buffer!");
-	throw std::runtime_error("Unable to create buffer!\n");
-    }
+        /* Create socket for receiving datagrams */
+        if ((phandler->sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+		SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to create socket");
 
-    direct_copy = has_direct_copy();
+        /* Set the socket as reusable */
+        int true_v = 1;
+        if (setsockopt(phandler->sock, SOL_SOCKET, SO_REUSEADDR, &true_v, sizeof (int))!=0)
+		SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to create socket");
 
-    //SoapySDR_logf(SOAPY_SDR_INFO, "Has direct RX copy: %d", (int)direct_copy);
+        /* Bind to the local address */
+        if (bind(phandler->sock, (struct sockaddr *) &ServAddr, sizeof(ServAddr)) < 0)
+		SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to bind the socket");
 
-    return 0;
+        /* Block until receive message from a client */
+	memset(&(phandler->ClntAddr), 0, sizeof(phandler->ClntAddr));
+        unsigned int cliAddrLen = sizeof(phandler->ClntAddr);
+	int recvMsgSize;
+        if ((recvMsgSize = recvfrom(phandler->sock, rx_buffer, ABUFF_SIZE*4, 0,(struct sockaddr *) &(phandler->ClntAddr), &cliAddrLen)) < 0)
+		SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to receive from client");
+
+        printf("Receiving from client %s, RX message size: %d bytes\n", inet_ntoa(phandler->ClntAddr.sin_addr),recvMsgSize);
+
+        // Set waiting limit
+	/*struct timeval tv;
+        tv.tv_sec = 1;                                  // Set the timeout for recv/recvfrom
+        if (setsockopt(phandler->sock, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
+		SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to create buffer!");*/
+
+	direct_copy = has_direct_copy();
+
+	return 0;
 }
 
 int rx_streamer::stop(const int flags,
 		const long long timeNs)
 {
-    if (buf) {
-    
-   	SoapySDR_logf(SOAPY_SDR_INFO, "rX_Streamer::stop cancel and destroy buf");
-    	//cancel first
-        iio_buffer_cancel(buf);
-    	//then destroy
-	iio_buffer_destroy(buf);
-	buf = nullptr;
-    
-    }
-    
-    items_in_buffer = 0;
-    byte_offset = 0;
+	//force proper stop before
+	memset(&(phandler->ClntAddr), 0, sizeof(phandler->ClntAddr));
+        memset(&rx_buffer,0,buffer_size*4);
+	close(phandler->sock);	
+	phandler->sock = 0;
 
-    return 0;
+    	items_in_buffer = 0;
+	byte_offset = 0;
+
+	return 0;
 }
 
-void rx_streamer::set_buffer_size(const size_t _buffer_size)
+void rx_streamer::set_buffer_size(const int a_buffer_size)
 {
-
-	if (!buf || this->buffer_size != _buffer_size) 
+/*	if (a_buffer_size<=16*1024) 
 	{
-        	//cancel first
-        	if (buf) 
-            		iio_buffer_cancel(buf);
-        	
-		//then destroy
-        	if (buf)
-        		iio_buffer_destroy(buf);
-        
+		// first clean
+        	memset(&rx_buffer,0,a_buffer_size*4);
+
+		// init things
 		items_in_buffer = 0;
         	byte_offset = 0;
-
-		buf = iio_device_create_buffer(dev, _buffer_size, false);
-		if (!buf) 
-		{
-			SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to create buffer!");
-			throw std::runtime_error("Unable to create buffer!\n");
-		}
-
+		this->buffer_size=a_buffer_size;
 	}
-	this->buffer_size=_buffer_size;
+	else
+		SoapySDR_logf(SOAPY_SDR_ERROR, "UDP buffer cannot be larger than 16K samples/64KB: %d",a_buffer_size);*/
+	
+	// init things
+	items_in_buffer = 0;
+        byte_offset = 0;
+	this->buffer_size=ABUFF_SIZE;
+
 }
 
-size_t rx_streamer::get_mtu_size() {
+size_t rx_streamer::get_mtu_size() 
+{
     return this->mtu_size;
 }
 
 // return wether can we optimize for single RX, 2 channel (I/Q), same endianess direct copy
 bool rx_streamer::has_direct_copy()
 {
-	if (channel_list.size() != 2) // one RX with I + Q
-		return false;
-
-	ptrdiff_t buf_step = iio_buffer_step(buf);
-
-	if (buf_step != 2 * sizeof(int16_t))
-		return false;
-
-	if (iio_buffer_start(buf) != iio_buffer_first(buf, channel_list[0]))
-		return false;
-
-	int16_t test_dst, test_src = 0x1234;
-	iio_channel_convert(channel_list[0], &test_dst, (const void *)&test_src);
-
-	return test_src == test_dst;
-
+	return true;
 }
 
 
@@ -676,41 +588,19 @@ tx_streamer::tx_streamer(const iio_device *_dev, const plutosdrStreamFormat _for
 {
         SoapySDR_logf(SOAPY_SDR_INFO, "tx_streamer::tx_streamer");
 
-	if (dev == nullptr) {
+	if (dev == nullptr) 
+	{
 		SoapySDR_logf(SOAPY_SDR_ERROR, "cf-ad9361-dds-core-lpc not found!");
 		throw std::runtime_error("cf-ad9361-dds-core-lpc not found!");
 	}
 
-	unsigned int nb_channels = iio_device_get_channels_count(dev), i;
-	for (i = 0; i < nb_channels; i++)
-		iio_channel_disable(iio_device_get_channel(dev, i));
-
-	//default to channel 0, if none were specified
-	const std::vector<size_t> &channelIDs = channels.empty() ? std::vector<size_t>{0} : channels;
-
-	for (i = 0; i < channelIDs.size() * 2; i++) {
-		iio_channel *chn = iio_device_get_channel(dev, i);
-		iio_channel_enable(chn);
-		channel_list.push_back(chn);
-	}
-
-
-	//buf_size = 5760; // Samie: it was 4096
-	//buf_size = 4096;
-	// min: 64*1024
-	buf_size = 64*1024+4;
+	buffer_size = ABUFF_SIZE;
+	memset(&tx_buffer,0,buffer_size*4);
 	items_in_buf = 0;
-	buf = iio_device_create_buffer(dev, buf_size, false);
-	if (!buf) {
-		SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to create buffer!");
-		throw std::runtime_error("Unable to create buffer!");
-	}
-
+	
 	direct_copy = has_direct_copy();
 
-	//SoapySDR_logf(SOAPY_SDR_INFO, "Has direct TX copy: %d", (int)direct_copy);
-	printf("[SoapyPluto][tx_steamer] cf-ad9361-dds-core-lpc number of channels: %d, buf_size: %d \n",channel_list.size(),buf_size);
-        //SoapySDR_logf(SOAPY_SDR_INFO, "tx_streamer::tx_streamer number of channels: %d, buf_size: %d",channel_list.size(),buf_size);
+	printf("[SoapyPluto][tx_steamer] cf-ad9361-dds-core-lpc buffer_size: %d \n",(int)buffer_size);
 	
 	// Run the TX timestamp async thread
 	fast_timestamp_en = true;
@@ -719,13 +609,6 @@ tx_streamer::tx_streamer(const iio_device *_dev, const plutosdrStreamFormat _for
 
 tx_streamer::~tx_streamer()
 {
-	if(buf) 
-	{ 
-		iio_buffer_destroy(buf);
-	}
-
-	for(unsigned int i=0;i<channel_list.size(); ++i)
-		iio_channel_disable(channel_list[i]);
 
 }
 
@@ -738,13 +621,10 @@ int tx_streamer::start(const int flags,
     
     SoapySDR_logf(SOAPY_SDR_INFO, "tx_Streamer::start re-create buffer");
 
-    // re-create buffer
-    buf = iio_device_create_buffer(dev, buf_size, false);
-
-
-    if (!buf) {
-	SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to create buffer!");
-	throw std::runtime_error("Unable to create buffer!\n");
+    if (phandler->sock == 0)
+    {
+	SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to start TX");
+	throw std::runtime_error("Unable to start TX\n");
     }
 
     direct_copy = has_direct_copy();
@@ -757,20 +637,10 @@ int tx_streamer::start(const int flags,
 int tx_streamer::stop(const int flags,
 		const long long timeNs)
 {
-    if (buf) {
-    
-   	SoapySDR_logf(SOAPY_SDR_INFO, "tx_streamer::stop cancel and destroy buf");
-    	//cancel first
-        iio_buffer_cancel(buf);
-    	//then destroy
-	iio_buffer_destroy(buf);
-	buf = nullptr;
-    
-    }
-    
-    items_in_buf = 0;
+	memset(&tx_buffer,0,buffer_size*4);
+	items_in_buf = 0;
 
-    return 0;
+	return 0;
 }
 
 int tx_streamer::send(	const void * const *buffs,
@@ -780,32 +650,31 @@ int tx_streamer::send(	const void * const *buffs,
 		const long timeoutUs )
 
 {
-	if (!buf)
+	if (phandler->sock == 0)
         	return 0;
 
 	// Keep 2 samples free at the end of the buffer for the timestamp if it is enabled
 	size_t buf_size_revised;
 	if(fast_timestamp_en && difts_piggy_en)
-		buf_size_revised = buf_size - 4; // Buf_size is the number of samples in the buffer. The timestamp is 2 samples.
+		buf_size_revised = buffer_size - 4; // Buf_size is the number of samples in the buffer. The timestamp is 2 samples.
 	else if(fast_timestamp_en)
-		buf_size_revised = buf_size - 2; // Buf_size is the number of samples in the buffer. The timestamp is 2 samples.
+		buf_size_revised = buffer_size - 2; // Buf_size is the number of samples in the buffer. The timestamp is 2 samples.
 	else
-		buf_size_revised = buf_size;
+		buf_size_revised = buffer_size;
 
 	size_t items = std::min(buf_size_revised - items_in_buf, numElems);
     	
 	//SoapySDR_logf(SOAPY_SDR_INFO, "tx_streamer_send timeNs: %lld, buf_size: %d, items: %d",timeNs, (int)buf_size_revised, (int)items);
 
-	int16_t src = 0;
-	int16_t const *src_ptr = &src;
 	uint8_t *dst_ptr;
-	ptrdiff_t buf_step = iio_buffer_step(buf);
+	int buf_step = 4;
 
-	if (direct_copy && format == PLUTO_SDR_CS16) {
+	if (direct_copy && format == PLUTO_SDR_CS16) 
+	{
 		//printf("tx_streamer::send direct_copy and PLUTO_SDR_CS16 \n");
 		
 		// optimize for single TX, 2 channel (I/Q), same endianess direct copy
-		dst_ptr = (uint8_t *)iio_buffer_start(buf) + items_in_buf * 2 * sizeof(int16_t);
+		dst_ptr = (uint8_t *)tx_buffer + items_in_buf * 2 * sizeof(int16_t);
 
 		memcpy(dst_ptr, buffs[0], 2 * sizeof(int16_t) * items);
 	}
@@ -815,7 +684,7 @@ int tx_streamer::send(	const void * const *buffs,
 		float* samples_cf32 = (float*) buffs[0];
 		
 		// optimize for single TX, 2 channel (I/Q), same endianess direct copy
-		dst_ptr = (uint8_t *)iio_buffer_start(buf) + items_in_buf * 2 * sizeof(int16_t);
+		dst_ptr = (uint8_t *)tx_buffer + items_in_buf * 2 * sizeof(int16_t);
 	
 		for (size_t j = 0; j < items; ++j) 
 		{
@@ -829,13 +698,15 @@ int tx_streamer::send(	const void * const *buffs,
 		}
 		
 	}
-	else if (direct_copy && format == PLUTO_SDR_CS12) {
+	else if (direct_copy && format == PLUTO_SDR_CS12) 
+	{
 		//printf("tx_streamer::send direct_copy and PLUTO_SDR_CS12 \n");
 
-		dst_ptr = (uint8_t *)iio_buffer_start(buf) + items_in_buf * 2 * sizeof(int16_t);
+		dst_ptr = (uint8_t *)tx_buffer + items_in_buf * 2 * sizeof(int16_t);
 		int8_t *samples_cs12 = (int8_t *)buffs[0];
 
-		for (size_t index = 0; index < items; ++index) {
+		for (size_t index = 0; index < items; ++index) 
+		{
 			// consume 24 bit (iiqIQQ)
 			uint16_t src0 = uint16_t(*(samples_cs12++));
 			uint16_t src1 = uint16_t(*(samples_cs12++));
@@ -848,58 +719,15 @@ int tx_streamer::send(	const void * const *buffs,
 			dst_ptr++;
 		}
 	}
-	else if (format == PLUTO_SDR_CS12) {
+	else if (format == PLUTO_SDR_CS12) 
+	{
 		SoapySDR_logf(SOAPY_SDR_ERROR, "CS12 not available with this endianess or channel layout");
 		throw std::runtime_error("CS12 not available with this endianess or channel layout");
 	}
 	else
 	{
-		// channel size is 2 (I and Q)
-		
-		for (unsigned int k = 0; k < channel_list.size(); k++) {
-		
-			iio_channel *chn = channel_list[k];
-
-
-			unsigned int index = k / 2;
-
-			dst_ptr = (uint8_t *)iio_buffer_first(buf, chn) + items_in_buf * buf_step;
-
-			// note that TX expects samples MSB aligned, unlike RX which is LSB aligned
-			if (format == PLUTO_SDR_CS16) {
-				//printf("tx_streamer::send no direct PLUTO_SDR_CS16 \n");
-
-				int16_t *samples_cs16 = (int16_t *)buffs[index];
-
-				for (size_t j = 0; j < items; ++j) {
-					src = samples_cs16[j*2+k];
-					iio_channel_convert_inverse(chn, dst_ptr, src_ptr);
-					dst_ptr += buf_step;
-				}
-			}
-			else if (format == PLUTO_SDR_CF32) {
-				//printf("tx_streamer::send no direct PLUTO_SDR_CF32 \n");
-	
-				float *samples_cf32 = (float *)buffs[index];
-	
-				for (size_t j = 0; j < items; ++j) {
-					src = (int16_t)(samples_cf32[j*2+k] * 32767.999f); // 32767.999f (0x46ffffff) will ensure better distribution
-					iio_channel_convert_inverse(chn, dst_ptr, src_ptr);
-					dst_ptr += buf_step;
-				}
-			}
-			else if (format == PLUTO_SDR_CS8) {
-				//printf("tx_streamer::send no direct PLUTO_SDR_CS8 \n");
-	
-				int8_t *samples_cs8 = (int8_t *)buffs[index];
-	
-				for (size_t j = 0; j < items; ++j) {
-					src = (int16_t)(samples_cs8[j*2+k] << 8);
-					iio_channel_convert_inverse(chn, dst_ptr, src_ptr);
-					dst_ptr += buf_step;
-				}
-			}
-		}
+		SoapySDR_logf(SOAPY_SDR_ERROR, "Unknown TX format");
+                throw std::runtime_error("Unknown TX format");
 	}
 
 	// Save the timestamp if we are at the begining of the buffer, we need it in the end
@@ -916,10 +744,10 @@ int tx_streamer::send(	const void * const *buffs,
 		//Write the timestamp in the last 8 bytes of the buffer
 		if(fast_timestamp_en)
 		{
-			char* p_end = (char*)iio_buffer_end(buf);
-			uint64_t* tx_timestamp_pointer = (uint64_t*)(p_end-8);
-			uint64_t old_val = *tx_timestamp_pointer;
-			*tx_timestamp_pointer = phandler->txTimestampNS;
+			uint64_t* tx_timestamp_pointer = (uint64_t*) tx_buffer+(ABUFF_SIZE*4)-8;
+	                //uint64_t old_val = *tx_timestamp_pointer;
+        	        *tx_timestamp_pointer = phandler->txTimestampNS;
+
 			//printf("TX timestamp written: %llu, old_val: %llu\n",*tx_timestamp_pointer,old_val);
 			items_in_buf = items_in_buf + 2;
 		}
@@ -947,21 +775,21 @@ int tx_streamer::flush()
 
 int tx_streamer::send_buf()
 {
-    	if (!buf) 
+    	if (phandler->sock == 0) 
         	return 0;
 
 	if (items_in_buf > 0) 
 	{
-		if (items_in_buf < buf_size) 
+		if (items_in_buf < buffer_size)
 		{
-			ptrdiff_t buf_step = iio_buffer_step(buf);
-			uint8_t *buf_ptr = (uint8_t *)iio_buffer_start(buf) + items_in_buf * buf_step;
-			uint8_t *buf_end = (uint8_t *)iio_buffer_end(buf);
+			int buf_step = 4;
+			uint8_t *buf_ptr = (uint8_t *)tx_buffer + items_in_buf * buf_step;
+			uint8_t *buf_end = (uint8_t *)tx_buffer+(ABUFF_SIZE*4);
 
 			memset(buf_ptr, 0, buf_end - buf_ptr);
 		}
 
-		ssize_t ret = iio_buffer_push(buf);
+		ssize_t ret = sendto(phandler->sock,tx_buffer, ABUFF_SIZE*4, 0,(struct sockaddr*) &(phandler->ClntAddr), sizeof(phandler->ClntAddr));
 		items_in_buf = 0;
 
 		if (ret < 0)
@@ -973,7 +801,7 @@ int tx_streamer::send_buf()
 		if(difts_piggy_en)
 			ret = ret - 8;
 
-		return int(ret / iio_buffer_step(buf));
+		return int(ret / 4);
 	}
 
 	return 0;
@@ -983,21 +811,5 @@ int tx_streamer::send_buf()
 // return wether can we optimize for single TX, 2 channel (I/Q), same endianess direct copy
 bool tx_streamer::has_direct_copy()
 {
-
-	if (channel_list.size() != 2) // one TX with I/Q
-		return false;
-
-	ptrdiff_t buf_step = iio_buffer_step(buf);
-
-	if (buf_step != 2 * sizeof(int16_t))
-		return false;
-
-	if (iio_buffer_start(buf) != iio_buffer_first(buf, channel_list[0]))
-		return false;
-
-	int16_t test_dst, test_src = 0x1234;
-	iio_channel_convert_inverse(channel_list[0], &test_dst, (const void *)&test_src);
-
-	return test_src == test_dst;
-
+	return true;
 }
