@@ -39,7 +39,8 @@
 #include <SoapySDR/Logger.hpp>
 #include <SoapySDR/Formats.hpp>
 
-typedef enum plutosdrStreamFormat {
+typedef enum plutosdrStreamFormat 
+{
 	PLUTO_SDR_CF32,
 	PLUTO_SDR_CS16,
 	PLUTO_SDR_CS12,
@@ -117,7 +118,6 @@ class rx_streamer {
         	size_t mtu_size;
 		bool fast_timestamp_en;
 		bool difts_piggy_en;
-
 };
 
 class tx_streamer {
@@ -153,8 +153,8 @@ class tx_streamer {
 };
 
 
-class SoapyPlutoSDR : public SoapySDR::Device{
-
+class SoapyPlutoSDR : public SoapySDR::Device
+{
 	public:
 		SoapyPlutoSDR( const SoapySDR::Kwargs & args );
 		~SoapyPlutoSDR();
