@@ -13,23 +13,29 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # Lesser General Public License for more details.
 
-
-TARGETS := ad9361-iiostream
-
 CFLAGS = -Wall
 
 .PHONY: all clean
 
-all: clean $(TARGETS) run
+all: server clean run
 
-iio-monitor: iio-monitor.o
-	$(CC) -o $@ $^ $(LDFLAGS) -pthread -lncurses -lcdk -liio
+controller: Controller.o
+	g++ -c Controller.cpp
 
-ad9361-iiostream : ad9361-iiostream.o
-	$(CC) -o $@ $^ $(LDFLAGS) -liio -pthread
+iiodevice: IIODevice.o
+	g++ -c IIODevice.cpp
+
+udpserver: UDPServer.o
+	g++ -c UDPServer.cpp
+
+main: main.o
+	g++ -c main.cpp
+	
+server: main.o UDPServer.o IIODevice.o Controller.o
+	g++ -o Server Controller.o IIODevice.o UDPServer.o main.o -liio -lpthread
 
 run:
-	./ad9361-iiostream
+	./Server
 
 clean:
-	rm -f $(TARGETS) $(TARGETS:%=%.o)
+	rm -f *.o
