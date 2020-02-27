@@ -4,7 +4,8 @@
 string Controller::runCommand(string cmdStr)
 {
 	// Convert to lower case
-	transform(cmdStr.begin(), cmdStr.end(), cmdStr.begin(),[](unsigned char c){ return tolower(c); });
+	for(int i=0;i<cmdStr.length();i++)
+		cmdStr[i] = tolower(cmdStr[i]);
 
 	// Parse the lower case string
 	stringstream ss(cmdStr);
@@ -113,26 +114,33 @@ string Controller::runCommand(string cmdStr)
 			else if(vstrings[2]=="gain")
 			{
 				long long gainVal = dev->getGain(d);
-				res = to_string(gainVal);
+				stringstream ss;
+				ss << gainVal;
+				res = ss.str();
 			}
 			else if(vstrings[2]=="frequency")
 			{
 				// get the config struct
 				struct stream_cfg conf = dev->getConfig(d);
-				res = to_string(conf.lo_hz);
+				stringstream ss;
+				ss << conf.lo_hz;
+				res = ss.str();
 			}
 			else if(vstrings[2]=="samplerate")
 			{
 				// get the config struct
 				struct stream_cfg conf = dev->getConfig(d);
-				res = to_string(conf.fs_hz);
-
+				stringstream ss;
+				ss << conf.fs_hz;
+				res = ss.str();
 			}
 			else if(vstrings[2]=="bandwidth")
 			{
 				// get the config struct
 				struct stream_cfg conf = dev->getConfig(d);
-				res = to_string(conf.bw_hz);
+				stringstream ss;
+				ss << conf.bw_hz;
+				res = ss.str();
 			}
 			else
 			{
