@@ -17,6 +17,7 @@ void shutdown(int num)
 	free(controller); // First
 	free(iiodev); // Second
 	free(server); // Third
+	exit(0);
 }
 
 /* simple configuration and streaming */
@@ -35,10 +36,10 @@ int main (int argc, char **argv)
 
 	struct stream_cfg initTXConf;
 	
-	initRXConf.bw_hz = MHZ(4.373);
-	initRXConf.fs_hz = MHZ(1.92);
-	initRXConf.lo_hz = GHZ(2.560005);
-	initRXConf.rfport = "A";
+	initTXConf.bw_hz = MHZ(4.373);
+	initTXConf.fs_hz = MHZ(1.92);
+	initTXConf.lo_hz = GHZ(2.560005);
+	initTXConf.rfport = "A";
 
 	int rxBufferSizeSample = 15*1024; // AD9361 IIO RX
 	int txBufferSizeSample = 15*1024; // AD9361 IIO TX
@@ -51,6 +52,10 @@ int main (int argc, char **argv)
 	        iiodev = new IIODevice(rxBufferSizeSample,txBufferSizeSample, initRXConf, initTXConf);
 		controller = new Controller(iiodev);	
 		server = new UDPServer(commandPort,streamPort,txBufferSizeSample*4,rxBufferSizeSample*4,controller);
+
+		while(true)
+			server->runCommand();
+
 	}
 	catch(runtime_error& re)
         {

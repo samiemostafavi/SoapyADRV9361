@@ -71,12 +71,14 @@ struct iio_device* get_ad9361_stream_dev(struct iio_context *ctx, enum iodev d)
 			dev = iio_context_find_device(ctx, "cf-ad9361-dds-core-lpc"); 
 			if(dev == NULL)
 				throw runtime_error("No ad9361 TX device found");
+			break;
 		}
         	case RX:
 		{	
 			dev = iio_context_find_device(ctx, "cf-ad9361-lpc"); 
 			if(dev == NULL)
 				throw runtime_error("No ad9361 RX device found");
+			break;
 		}
         	default:
 		{
@@ -147,8 +149,8 @@ IIODevice::IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample,struct stre
         if((ctx = iio_create_default_context()) == NULL)
 		throw runtime_error("No context");
 
-        if(iio_context_get_devices_count(ctx) == 0);
-		throw runtime_error("No IIO device found");
+        /*if(iio_context_get_devices_count(ctx) == 0);
+		throw runtime_error("No IIO device found");*/
 
         rx = get_ad9361_stream_dev(ctx, RX);
         tx = get_ad9361_stream_dev(ctx, TX);
@@ -265,8 +267,8 @@ void IIODevice::setConfig(struct stream_cfg cfg, enum iodev type)
 	// Update member variables	
 	switch (type)
         {
-		case RX: { RXConfig = getConfig(RX); }
-		case TX: { TXConfig = getConfig(TX); }
+		case RX: { RXConfig = getConfig(RX); break; }
+		case TX: { TXConfig = getConfig(TX); break; }
                 default: { throw runtime_error("Wrong enum iodev"); }
         }
 }
@@ -292,8 +294,8 @@ struct stream_cfg IIODevice::getConfig(enum iodev d)
 	
 	switch (d)
         {
-		case RX: { RXConfig = cfg; }
-		case TX: { TXConfig = cfg; }
+		case RX: { RXConfig = cfg; break; }
+		case TX: { TXConfig = cfg; break; }
                 default: { throw runtime_error("Wrong enum iodev"); }
         }
 
@@ -304,8 +306,8 @@ bool IIODevice::isStreaming(enum iodev d)
 {
 	switch (d)
         {
-		case RX: { return rxIsStreaming; }
-		case TX: { return txIsStreaming; }
+		case RX: { return rxIsStreaming; break; }
+		case TX: { return txIsStreaming; break; }
                 default: { throw runtime_error("Wrong enum iodev"); }
         }
 }

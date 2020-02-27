@@ -33,6 +33,7 @@ class UDPServer
                 UDPServer(int _commandPort,int _streamPort,int _rxBufferSizeByte,int _txBufferSizeByte,Controller* _controller);
                 ~UDPServer();
                 static void* runCommands(void* server);
+		void runCommand();
                 int sendStreamBuffer(char* pBuffer);
                 int receiveStreamBuffer(char* pBuffer);
                 int setTXBufferSizeByte();

@@ -1,5 +1,6 @@
 .gitignore
 build/
+boardC/
 *.o
 *.out
 

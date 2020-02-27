@@ -34,16 +34,16 @@ UDPServer::UDPServer(int _commandPort,int _streamPort,int _rxBufferSizeByte,int 
         servSTRAddr.sin_port = htons(streamPort);           // Local port
         
 	// Create socket for receiving datagrams
-        if ((commandSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+        if ((streamSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
                 throw runtime_error("Unable to create the command socket");
 
         // Set the socket as reusable
         true_v = 1;
-        if (setsockopt(commandSocket, SOL_SOCKET, SO_REUSEADDR, &true_v, sizeof (int))!=0)
+        if (setsockopt(streamSocket, SOL_SOCKET, SO_REUSEADDR, &true_v, sizeof (int))!=0)
                 throw runtime_error("Unable to make the command socket reusable");
 
         // Bind to the local address
-        if (bind(commandSocket, (struct sockaddr *) &servSTRAddr, sizeof(servSTRAddr)) < 0)
+        if (bind(streamSocket, (struct sockaddr *) &servSTRAddr, sizeof(servSTRAddr)) < 0)
                 throw runtime_error("Unable to bind the socket");
 
 	// Init controller server
@@ -54,8 +54,8 @@ UDPServer::UDPServer(int _commandPort,int _streamPort,int _rxBufferSizeByte,int 
 	controller->stop(TX);
 	
 	// Start the command runner thread (waits for the client "init" command)
-        if(pthread_create(&command_thread, NULL, &UDPServer::runCommands,this) != 0)
-                throw runtime_error("Unable to start command thread");
+        //if(pthread_create(&command_thread, NULL, &UDPServer::runCommands,this) != 0)
+        //        throw runtime_error("Unable to start command thread");
 
 
 }
@@ -159,6 +159,47 @@ void* UDPServer::runCommands(void* server)
 	close(p->streamSocket);
 	
 	printf("Network UDP command serving thread is stopped\n");
+}
+
+void UDPServer::runCommand()
+{
+	int ret;
+	char msg[MESSAGE_LENGTH_CHAR];
+	struct sockaddr_in cliAddr;
+	unsigned int cliAddrLen = sizeof(cliAddr);
+	cout << "waiting for commands" << endl;
+	if ((ret = recvfrom(commandSocket, msg, MESSAGE_LENGTH_CHAR, 0,(struct sockaddr *) &(cliAddr), &cliAddrLen)) < 0 )
+               	throw runtime_error("Unable to receive first command");
+
+	if(ret == 0)		
+	{
+		cout << "UDP empty datagram received, continue..." << endl;
+		return;
+	}
+
+	cout << "got something: " << msg << endl;
+
+	if(string(msg,ret)=="init")
+	{
+		// A new client is there, fix the addresses
+		initClient(cliAddr);
+		return;
+	}
+	
+	if(!clientInitiated)
+	{
+		// Client init did not happen
+		cout << "Client has not been initialized, continue..." << endl;
+		return;
+	}
+				
+	// Send the string up! Process the command
+	string response = controller->runCommand(string(msg,ret));
+
+	// Send back the response
+	int sendMsgSize = sendto(commandSocket, response.c_str(), sizeof(response), 0,(struct sockaddr*) &(clntCMDAddr), sizeof(clntCMDAddr));
+        if (sendMsgSize<0)
+        	throw runtime_error("Unable to respond to the incomming commands");
 }
 
 int UDPServer::sendStreamBuffer(char* pBuffer)
