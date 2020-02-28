@@ -102,7 +102,7 @@ int main()
 		cout << "Req: " << req << " - Res: " << res << endl;
 		
 		req.clear(); res.clear();
-		req = "set tx gain 35";
+		req = "set tx gain 20";
 		res = udpc->sendCommand(req);
 		cout << "Req: " << req << " - Res: " << res << endl;
 
@@ -111,6 +111,22 @@ int main()
 		res = udpc->sendCommand(req);
 		cout << "Req: " << req << " - Res: " << res << endl;
 
+		// GainMode RX
+		req.clear(); res.clear();
+		req = "get rx gainmode";
+		res = udpc->sendCommand(req);
+		cout << "Req: " << req << " - Res: " << res << endl;
+		
+		req.clear(); res.clear();
+		req = "set rx gainmode manual";
+		res = udpc->sendCommand(req);
+		cout << "Req: " << req << " - Res: " << res << endl;
+
+		req.clear(); res.clear();
+		req = "get rx gainmode";
+		res = udpc->sendCommand(req);
+		cout << "Req: " << req << " - Res: " << res << endl;
+		
 		// Antenna RX
 		req.clear(); res.clear();
                 req = "get rx antenna";

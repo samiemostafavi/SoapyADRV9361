@@ -261,8 +261,8 @@ void IIODevice::setConfig(struct stream_cfg cfg, enum iodev type)
 	{
 	        wr_ch_lli(chn, "sampling_frequency", cfg.fs_hz);
 
-		if(ad9361_set_bb_rate(dev,(unsigned long)cfg.fs_hz))
-			throw runtime_error("Unable to set BB rate.");
+		//if(ad9361_set_bb_rate(dev,(unsigned long)cfg.fs_hz))
+		//	throw runtime_error("Unable to set BB rate.");
 	}
 
         // Configure LO channel

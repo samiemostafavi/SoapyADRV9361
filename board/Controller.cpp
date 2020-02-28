@@ -284,6 +284,7 @@ void Controller::stop(enum iodev d)
 	        rx_thread_active = false;
 		
 		// Join thread
+        	pthread_cancel(rx_thread);
         	pthread_join(rx_thread, NULL);
 		
 		// Stop streaming
