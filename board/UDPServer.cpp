@@ -78,14 +78,16 @@ void UDPServer::initClient(struct sockaddr_in cliAddr)
 	clntCMDAddr = cliAddr;
 
 	// Send the response
-	char res[4]  = "ack";
-        int sendMsgSize = sendto(commandSocket, res, sizeof(res), 0,(struct sockaddr*) &(clntCMDAddr), sizeof(clntCMDAddr));
+	string a = string("ack");
+        int sendMsgSize = sendto(commandSocket, a.c_str(), a.length(), 0,(struct sockaddr*) &(clntCMDAddr), sizeof(clntCMDAddr));
         if (sendMsgSize<0)
         	throw runtime_error("Unable to respond to commands");
 
         // Blocking receive of the first stream buffer (dummy)
         char dummy[rxBufferSizeByte];
-        if (receiveStreamBuffer(dummy) < 0)
+	unsigned int cliAddrLen = sizeof(clntSTRAddr);
+	int recvDummySize = recvfrom(streamSocket, dummy, rxBufferSizeByte, 0,(struct sockaddr *) &(clntSTRAddr), &cliAddrLen);
+        if(recvDummySize < 0)
                 throw runtime_error("Failed to receive the dummy buffer");
 	
 	// Printout the result
@@ -140,7 +142,7 @@ void* UDPServer::runCommands(void* server)
 			string response = p->controller->runCommand(string(msg,ret));
 
 			// Send back the response
-			int sendMsgSize = sendto(p->commandSocket, response.c_str(), sizeof(response), 0,(struct sockaddr*) &(p->clntCMDAddr), sizeof(p->clntCMDAddr));
+			int sendMsgSize = sendto(p->commandSocket, response.c_str(), response.length(), 0,(struct sockaddr*) &(p->clntCMDAddr), sizeof(p->clntCMDAddr));
                 	if (sendMsgSize<0)
         	        	throw runtime_error("Unable to respond to the incomming commands");
 	
@@ -167,7 +169,7 @@ void UDPServer::runCommand()
 	char msg[MESSAGE_LENGTH_CHAR];
 	struct sockaddr_in cliAddr;
 	unsigned int cliAddrLen = sizeof(cliAddr);
-	cout << "waiting for commands" << endl;
+	//cout << "waiting for commands" << endl;
 	if ((ret = recvfrom(commandSocket, msg, MESSAGE_LENGTH_CHAR, 0,(struct sockaddr *) &(cliAddr), &cliAddrLen)) < 0 )
                	throw runtime_error("Unable to receive first command");
 
@@ -177,7 +179,7 @@ void UDPServer::runCommand()
 		return;
 	}
 
-	cout << "got something: " << msg << endl;
+	//cout << "Received cmd: " << string(msg,ret) << endl;
 
 	if(string(msg,ret)=="init")
 	{
@@ -197,7 +199,7 @@ void UDPServer::runCommand()
 	string response = controller->runCommand(string(msg,ret));
 
 	// Send back the response
-	int sendMsgSize = sendto(commandSocket, response.c_str(), sizeof(response), 0,(struct sockaddr*) &(clntCMDAddr), sizeof(clntCMDAddr));
+	int sendMsgSize = sendto(commandSocket, response.c_str(), response.length(), 0,(struct sockaddr*) &(clntCMDAddr), sizeof(clntCMDAddr));
         if (sendMsgSize<0)
         	throw runtime_error("Unable to respond to the incomming commands");
 }

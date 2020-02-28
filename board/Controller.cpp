@@ -3,10 +3,6 @@
 
 string Controller::runCommand(string cmdStr)
 {
-	// Convert to lower case
-	for(int i=0;i<cmdStr.length();i++)
-		cmdStr[i] = tolower(cmdStr[i]);
-
 	// Parse the lower case string
 	stringstream ss(cmdStr);
 	istream_iterator<string> begin(ss);
@@ -42,12 +38,16 @@ string Controller::runCommand(string cmdStr)
 				struct stream_cfg conf = dev->getConfig(d);
 				conf.rfport = vstrings[3];
 				dev->setConfig(conf,d);
+
+				response = "done";
 			}
 			else if(vstrings[2]=="gain")
 			{
 				long long val;
 				val = strtoll(vstrings[3].c_str(), &endptr, 10);
 				dev->setGain(d,val);
+
+				response = "done";
 			}
 			else if(vstrings[2]=="frequency")
 			{
@@ -64,6 +64,8 @@ string Controller::runCommand(string cmdStr)
 				// configure
 				dev->setConfig(conf,d);
 
+				response = "done";
+
 			}
 			else if(vstrings[2]=="samplerate")
 			{
@@ -79,6 +81,8 @@ string Controller::runCommand(string cmdStr)
 
 				// configure
 				dev->setConfig(conf,d);
+
+				response = "done";
 			}
 			else if(vstrings[2]=="bandwidth")
 			{
@@ -95,6 +99,7 @@ string Controller::runCommand(string cmdStr)
 				// configure
 				dev->setConfig(conf,d);
 
+				response = "done";
 			}
 			else
 			{
@@ -104,19 +109,18 @@ string Controller::runCommand(string cmdStr)
 		}
 		else if (vstrings[0]=="get")
 		{
-			string res;
 			if(vstrings[2]=="antenna")
 			{
 				// get the config struct
 				struct stream_cfg conf = dev->getConfig(d);
-				res = conf.rfport;
+				response = conf.rfport;
 			}
 			else if(vstrings[2]=="gain")
 			{
 				long long gainVal = dev->getGain(d);
 				stringstream ss;
 				ss << gainVal;
-				res = ss.str();
+				response = ss.str();
 			}
 			else if(vstrings[2]=="frequency")
 			{
@@ -124,7 +128,7 @@ string Controller::runCommand(string cmdStr)
 				struct stream_cfg conf = dev->getConfig(d);
 				stringstream ss;
 				ss << conf.lo_hz;
-				res = ss.str();
+				response = ss.str();
 			}
 			else if(vstrings[2]=="samplerate")
 			{
@@ -132,7 +136,7 @@ string Controller::runCommand(string cmdStr)
 				struct stream_cfg conf = dev->getConfig(d);
 				stringstream ss;
 				ss << conf.fs_hz;
-				res = ss.str();
+				response = ss.str();
 			}
 			else if(vstrings[2]=="bandwidth")
 			{
@@ -140,7 +144,7 @@ string Controller::runCommand(string cmdStr)
 				struct stream_cfg conf = dev->getConfig(d);
 				stringstream ss;
 				ss << conf.bw_hz;
-				res = ss.str();
+				response = ss.str();
 			}
 			else
 			{
@@ -176,22 +180,26 @@ string Controller::runCommand(string cmdStr)
 		        	}
 			}
 
+			response = "done";
+
 	  	}
 		else if (vstrings[0]=="stop")
 		{
 			stop(d);
+			response = "done";
 	  	}
 		else
 		{
 			throw runtime_error("Wrong command, not parsable");
 		}
-
-		response = "done";
 	}
 	catch(runtime_error& re)
 	{
 		response = string("Runtime error: ") + re.what();
 	}
+	
+	// printout the request and the response
+	cout << cmdStr << " : " << response << endl;
 
 	return response;
 }
@@ -264,16 +272,20 @@ void Controller::stop(enum iodev d)
 	{
 		// Stop the rx streamer thread
 	        rx_thread_active = false;
+		
+		// Join thread
         	pthread_join(rx_thread, NULL);
 		
 		// Stop streaming
 	        dev->disableChannels(RX);
-        
 	}
 	else if(d==TX)
 	{
-		// Stop the tx streamer thread
+		// Stop the rx streamer thread
 	        tx_thread_active = false;
+		
+		// Force stop the tx streamer thread
+        	pthread_cancel(tx_thread);
         	pthread_join(tx_thread, NULL);
 		
 		// Stop streaming

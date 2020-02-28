@@ -64,7 +64,7 @@ void UDPClient::initProcedure()
 {
 	char dummy[txBufferSizeByte];
 	string res = sendCommand("init");
-	if(res == "ack")
+	if(res == string("ack"))
 		sendStreamBuffer(dummy);
 	else
 		throw runtime_error(string("Did not received ack from the server: ")+res);
@@ -90,7 +90,7 @@ string UDPClient::sendCommand(string cmd)
         if(recvMsgSize<0)
         	throw runtime_error("Unable to receive the command response");
 
-	return string(recvMsg);
+	return string(recvMsg,recvMsgSize);
 }
 
 

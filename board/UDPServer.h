@@ -22,7 +22,7 @@
 
 using namespace std;
 
-#define MESSAGE_LENGTH_CHAR 512
+#define MESSAGE_LENGTH_CHAR 1024
 
 
 class Controller;
