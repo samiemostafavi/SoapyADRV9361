@@ -2,11 +2,11 @@
 #include <SoapySDR/Registry.hpp>
 
 static std::vector<SoapySDR::Kwargs> results;
-static std::vector<SoapySDR::Kwargs> find_PlutoSDR(const SoapySDR::Kwargs &args){
-
+static std::vector<SoapySDR::Kwargs> find_PlutoSDR(const SoapySDR::Kwargs &args)
+{
 	if(!results.empty())
-	  return results;
-
+	 	return results;
+	
 	ssize_t ret=0;
 	iio_context *ctx=nullptr;
 	iio_scan_context *scan_ctx;

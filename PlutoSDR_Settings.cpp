@@ -1,8 +1,4 @@
 #include "SoapyPlutoSDR.hpp"
-#ifdef HAS_AD9361_IIO
-#include <ad9361.h>
-#endif
-
 
 SoapyPlutoSDR::SoapyPlutoSDR( const SoapySDR::Kwargs &args ):
 	dev(nullptr), rx_dev(nullptr),tx_dev(nullptr), decimation(false), interpolation(false), rx_stream(nullptr)
@@ -66,73 +62,6 @@ bool SoapyPlutoSDR::getFullDuplex( const int direction, const size_t channel ) c
 	return true;
 }
 
-
-/*******************************************************************
- * Sensor API
- ******************************************************************/
-
-bool SoapyPlutoSDR::is_sensor_channel(struct iio_channel *chn) const
-{
-	return false;
-}
-
-double SoapyPlutoSDR::double_from_buf(const char *buf) const
-{
-	std::istringstream val_as_string(buf);
-	val_as_string.imbue(std::locale::classic()); // ignore global C++ locale
-
-	double val = 0.0;
-	val_as_string >> val;
-
-	return val;
-}
-
-double SoapyPlutoSDR::get_sensor_value(struct iio_channel *chn) const
-{
-	char buf[32];
-	double val = 0.0;
-	return val / 1000.0;
-}
-
-std::string SoapyPlutoSDR::id_to_unit(const std::string& id) const
-{
-	static std::map<std::string, std::string> id_to_unit_table = {
-		{ "current",	"A" },
-		{ "power",	"W" },
-		{ "temp",	"C" },
-		{ "voltage",	"V" },
-	};
-
-	for (auto it_match : id_to_unit_table) 
-	{
-		//if the id starts with a known prefix, retreive its unit.
-		if (id.substr(0, it_match.first.size()) == it_match.first) 
-		{
-			return it_match.second;
-		}
-	}
-	return std::string();
-}
-
-std::vector<std::string> SoapyPlutoSDR::listSensors(void) const
-{
-	std::vector<std::string> sensors;
-	return sensors;
-}
-
-SoapySDR::ArgInfo SoapyPlutoSDR::getSensorInfo(const std::string &key) const
-{
-	SoapySDR::ArgInfo info;
-	return info;
-}
-
-std::string SoapyPlutoSDR::readSensor(const std::string &key) const
-{
-	std::string sensorValue;
-	return sensorValue;
-}
-
-
 /*******************************************************************
  * Settings API
  ******************************************************************/
@@ -162,8 +91,16 @@ std::string SoapyPlutoSDR::readSetting(const std::string &key) const
 std::vector<std::string> SoapyPlutoSDR::listAntennas( const int direction, const size_t channel ) const
 {
 	std::vector<std::string> options;
-	if(direction == SOAPY_SDR_RX) options.push_back( "A_BALANCED" );
-	if(direction == SOAPY_SDR_TX) options.push_back( "A" );
+	if(direction == SOAPY_SDR_RX)
+	{
+		options.push_back( "A_BALANCED" );
+		options.push_back( "B_BALANCED" );
+	}
+	if(direction == SOAPY_SDR_TX) 
+	{
+		options.push_back( "A" );
+		options.push_back( "B" );
+	}
 	return(options);
 }
 
@@ -421,11 +358,8 @@ void SoapyPlutoSDR::setSampleRate( const int direction, const size_t channel, co
 		printf("[SoapyPluto][setSampleRate] TX SamplingRate set to  %llu \n",samplerate);
 	}
 
-#ifdef HAS_AD9361_IIO
 	if(ad9361_set_bb_rate(dev,(unsigned long)samplerate))
 		SoapySDR_logf(SOAPY_SDR_ERROR, "Unable to set BB rate.");	
-#endif
-
 }
 
 double SoapyPlutoSDR::getSampleRate( const int direction, const size_t channel ) const

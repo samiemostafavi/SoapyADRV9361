@@ -375,6 +375,27 @@ void IIODevice::setGain(enum iodev d, long long gain)
         }
 }
 
+string IIODevice::getGainMode(enum iodev d)
+{
+        struct iio_channel *chn = NULL;
+	
+	if (!get_phy_chan(ctx, d, 0, &chn))
+		throw runtime_error("Could not find physical channel in getGainMode");
+        
+	return rd_ch_str(chn, "gain_control_mode");
+}
+
+void IIODevice::setGainMode(enum iodev d, string gainMode)
+{
+        struct iio_channel *chn = NULL;
+	
+	if (!get_phy_chan(ctx, d, 0, &chn))
+		throw runtime_error("Could not find physical channel in getGainMode");
+        
+	wr_ch_str(chn, "gain_control_mode", gainMode.c_str());
+}
+
+
 void IIODevice::enableChannels(enum iodev d)
 {
 	switch (d)

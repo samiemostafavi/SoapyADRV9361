@@ -56,6 +56,8 @@ class IIODevice
 		bool isStreaming(enum iodev d);
 		void setGain(enum iodev d, long long gain);
 		long long getGain(enum iodev d);
+		string getGainMode(enum iodev d);
+		void setGainMode(enum iodev d, string gainMode);
 		char* receiveBuffer();
 		void sendBuffer(char* buffer);
 		char* getTXBufferPointer();

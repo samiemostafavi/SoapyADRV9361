@@ -1,4 +1,3 @@
-#include "SoapyPlutoSDR.hpp"
 #include <memory>
 #include <iostream>
 #include <cstdint>
@@ -9,6 +8,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+
+#include "SoapyPlutoSDR.hpp"
 
 // Need to be a power of 2 for maximum efficiency ?
 # define DEFAULT_RX_BUFFER_SIZE (1 << 16)

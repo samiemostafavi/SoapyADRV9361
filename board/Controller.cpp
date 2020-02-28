@@ -49,6 +49,11 @@ string Controller::runCommand(string cmdStr)
 
 				response = "done";
 			}
+			else if(vstrings[2]=="gainmode")
+			{
+				dev->setGainMode(d,vstrings[3]);
+				response = "done";
+			}
 			else if(vstrings[2]=="frequency")
 			{
 				// get the config struct
@@ -121,6 +126,11 @@ string Controller::runCommand(string cmdStr)
 				stringstream ss;
 				ss << gainVal;
 				response = ss.str();
+			}
+			else if(vstrings[2]=="gainmode")
+			{
+				string gainMode = dev->getGainMode(d);
+				response = gainMode;
 			}
 			else if(vstrings[2]=="frequency")
 			{
