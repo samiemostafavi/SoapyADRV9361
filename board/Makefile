@@ -32,7 +32,7 @@ main.o: main.cpp
 	g++ -c main.cpp
 	
 server: main.o UDPServer.o IIODevice.o Controller.o
-	g++ Controller.o IIODevice.o UDPServer.o main.o -liio -lpthread -o Server
+	g++ Controller.o IIODevice.o UDPServer.o main.o -lad9361 -liio -lpthread -o Server -L /usr/local/lib 
 
 run:
 	./Server

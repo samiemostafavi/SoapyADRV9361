@@ -10,7 +10,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <iio.h>
 #include <time.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -21,6 +20,9 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <stdexcept>
+
+#include <iio.h>
+#include <ad9361.h>
 
 /* helper macros */
 #define MHZ(x) ((long long)(x*1000000.0 + .5))

@@ -246,6 +246,9 @@ void IIODevice::setConfig(struct stream_cfg cfg, enum iodev type)
 
 	// get the local config
 	struct stream_cfg lcfg = (type == RX) ? (RXConfig) : (TXConfig);
+	
+	// get the dev
+	struct iio_device* dev = (type == RX) ? (rx) : (tx);
 
 	// compare each parameter, update the new ones only
 	if(cfg.rfport != lcfg.rfport)
@@ -255,7 +258,12 @@ void IIODevice::setConfig(struct stream_cfg cfg, enum iodev type)
 	        wr_ch_lli(chn, "rf_bandwidth",       cfg.bw_hz);
 
 	if(cfg.fs_hz != lcfg.fs_hz)
+	{
 	        wr_ch_lli(chn, "sampling_frequency", cfg.fs_hz);
+
+		if(ad9361_set_bb_rate(dev,(unsigned long)cfg.fs_hz))
+			throw runtime_error("Unable to set BB rate.");
+	}
 
         // Configure LO channel
         if (!get_lo_chan(ctx, type, &chn))
