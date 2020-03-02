@@ -98,7 +98,7 @@ void UDPClient::setTXBufferSizeByte(int sizeByte)
 	if(sizeByte > 65535)
 		throw runtime_error("Maximum udp packet size: 65535");
 
-	string res = sendCommand("set tx buffersize " + sizeByte);
+	string res = sendCommand("set tx buffersize " + to_string(sizeByte));
 
 	if(res == "done")
 		txBufferSizeByte = sizeByte;
@@ -111,7 +111,7 @@ void UDPClient::setRXBufferSizeByte(int sizeByte)
 	if(sizeByte > 65535)
 		throw runtime_error("Maximum udp packet size: 65535");
 	
-	string res = sendCommand("set rx buffersize " + sizeByte);
+	string res = sendCommand("set rx buffersize " + to_string(sizeByte));
 
 	if(res == "done")
 		rxBufferSizeByte = sizeByte;

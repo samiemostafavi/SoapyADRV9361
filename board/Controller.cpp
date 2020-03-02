@@ -204,9 +204,6 @@ string Controller::runCommand(string cmdStr)
 	  	}
 		else if (vstrings[0]=="start")
 		{
-			// first a clean stop
-			stop(d);
-
 			// Start streaming thread
 			switch (d)
 			{
@@ -276,7 +273,6 @@ void* Controller::streamRX(void* controller)
 	// new rx dev 
 	p->rxdev = new IIODevice(p->dev->getRXBufferSizeSample(),p->dev->getTXBufferSizeSample()); 
 	p->rxdev->enableChannels(RX);
-
 	try
 	{
 		while(p->rx_thread_active)

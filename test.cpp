@@ -37,7 +37,7 @@ void stream(UDPClient* udpc, int num)
 	int recv_packets = 0;
 	int sent_packets = 0;
 	int failed_packets = 0;
-	int tsize = 10000;
+	int tsize = num;
 	//uint64_t* rx_timestamps = new (sizeof(uint64_t)*tsize);
 	//int64_t* txdif_timestamps = new (sizeof(int64_t)*tsize);
 	uint64_t* rx_timestamps = (uint64_t*)malloc(sizeof(uint64_t)*tsize);
@@ -335,12 +335,12 @@ int main()
 		
 		// Enable Channels
 		req.clear(); res.clear();
-                req = "start rx";
+                req = "start rx ";
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
 		
 		req.clear(); res.clear();
-                req = "start tx";
+                req = "start tx ";
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
 		
@@ -349,12 +349,12 @@ int main()
 
 		// Disable Channels
 		req.clear(); res.clear();
-                req = "stop rx";
+                req = "stop rx ";
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
 		
 		req.clear(); res.clear();
-                req = "stop tx";
+                req = "stop tx ";
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
 
