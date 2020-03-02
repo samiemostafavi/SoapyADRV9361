@@ -72,7 +72,6 @@ void UDPClient::initProcedure()
 	cout << "Successfully connected to the server, ip: " << serverIP << " port: " << to_string(serverStreamPort) << endl;
 }
 
-
 string UDPClient::sendCommand(string cmd)
 {
 	// send the command over the command socket
@@ -93,6 +92,32 @@ string UDPClient::sendCommand(string cmd)
 	return string(recvMsg,recvMsgSize);
 }
 
+
+void UDPClient::setTXBufferSizeByte(int sizeByte)
+{
+	if(sizeByte > 65535)
+		throw runtime_error("Maximum udp packet size: 65535");
+
+	string res = sendCommand("set tx buffersize " + sizeByte);
+
+	if(res == "done")
+		txBufferSizeByte = sizeByte;
+	else
+		throw runtime_error(res);
+}
+
+void UDPClient::setRXBufferSizeByte(int sizeByte)
+{
+	if(sizeByte > 65535)
+		throw runtime_error("Maximum udp packet size: 65535");
+	
+	string res = sendCommand("set rx buffersize " + sizeByte);
+
+	if(res == "done")
+		rxBufferSizeByte = sizeByte;
+	else
+		throw runtime_error(res);
+}
 
 int UDPClient::sendStreamBuffer(char* pBuffer)
 {

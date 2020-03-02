@@ -6,6 +6,24 @@
 
 using namespace std;
 
+#define WRITE_FILE 1
+
+void writeFileRx(char* file_name)
+{
+	FILE *write_ptr;
+	write_ptr = fopen(file_name,"wb");  // w for write, b for binary
+	fwrite(phandler->rx_timestamps,sizeof(uint64_t)*TIMESTAMP_BUFF_SIZE,1,write_ptr);
+	fclose(write_ptr);
+}
+
+void writeFileTxDif(char* file_name)
+{
+	FILE *write_ptr;
+	write_ptr = fopen(file_name,"wb");  // w for write, b for binary
+	fwrite(phandler->txdif_timestamps,sizeof(int64_t)*TIMESTAMP_BUFF_SIZE,1,write_ptr);
+	fclose(write_ptr);
+}
+
 
 int main()
 {
@@ -70,7 +88,7 @@ int main()
 		cout << "Req: " << req << " - Res: " << res << endl;
 		
 		req.clear(); res.clear();
-		req = "set tx samplerate 5120000";
+		req = "set tx samplerate 5760000";
 		res = udpc->sendCommand(req);
 		cout << "Req: " << req << " - Res: " << res << endl;
 
@@ -201,7 +219,66 @@ int main()
                 req = "start tx";
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
-		
+	
+		// Start 10 seconds RX/TX
+		int64_t dif_timestamp = 0;
+		int64_t tx_dif_timestamp = 0;
+		uint64_t rx_timestamp = 0;
+		int size = udpc->getRXBufferSizeByte();
+		char Buffer[size];
+		int recv_count = 0;
+		int send_count = 0;
+		int recv_packets = 0;
+		int send_packets = 0;
+		uint64_t* rx_timestamps;
+		int64_t* txdif_timestamps;
+		int tsize = 10000;
+		rx_timestamps = new (sizeof(uint64_t)*tsize);
+		txdif_timestamps = new (sizeof(int64_t)*tsize);
+		while(true)
+		{
+			// Receive the RX buffer
+			int recvMsgSize = udpc->receiveStreamBuffer(Buffer);
+			recv_count += recvMsgSize;
+			recv_packets++;
+
+			// Read the RX timestamp and tx_dif_timestamp
+			uint64_t* rx_timestamp_pointer = Buffer+size-8;
+			uint64_t* tx_dif_timestamp_pointer = Buffer+size-16;
+			dif_timestamp = *rx_timestamp_pointer - rx_timestamp;
+			tx_dif_timestamp = *tx_dif_timestamp_pointer;
+			rx_timestamp = *rx_timestamp_pointer;
+			//printf("RX timestamp: %llu, dif: %llu, tx_dif %lld\n",*rx_timestamp_pointer,dif_timestamp,tx_dif_timestamp);
+
+			// Save the timestamps into the struct
+			rx_timestamps[sent_packets % tsize] = rx_timestamp;
+			txdif_timestamps[sent_packets % tsize] = tx_dif_timestamp;
+
+			// Schedule TX buffer by TX timestamp
+			uint64_t* tx_timestamp_pointer = Buffer+size-8;
+			uint64_t old_val = *tx_timestamp_pointer;
+			*tx_timestamp_pointer = rx_timestamp;
+			//printf("TX timestamp: %llu, old_val: %llu\n",*tx_timestamp_pointer,old_val);
+			//memset(&Buffer,0,sizeof(Buffer) );
+
+			// Send the TX Buffer
+			int sendMsgSize = udpc->sendStreamBuffer(rxBuffer);
+		        sent_count+=sendMsgSize;
+			send_packets++;
+		}
+		free(rx_timestamps);
+		free(txdif_timestamps);
+		printf("UDP bytes received %lld MB in total, %d packets\n",phandler->recv_count/1024/1024,phandler->recv_packets);
+		printf("UDP bytes sent %lld MB in total, %d packets\n",phandler->sent_count/1024/1024,phandler->sent_packets);
+
+#if WRITE_FILE
+
+	// Write the timestamps into the file
+	writeFileRx("rx_timestamps_udp.dat");
+	writeFileTxDif("txdif_timestamps_udp.dat");
+
+#endif
+
 		// Disable Channels
 		req.clear(); res.clear();
                 req = "stop rx";

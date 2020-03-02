@@ -62,6 +62,8 @@ class IIODevice
 		void sendBuffer(char* buffer);
 		char* getTXBufferPointer();
 		void sendBufferFast();
+		void setBufferSize(enum iodev d,int s);
+		int getBufferSize(enum iodev d);
 	private:
 		int rxBufferSizeSample;
 		int txBufferSizeSample;

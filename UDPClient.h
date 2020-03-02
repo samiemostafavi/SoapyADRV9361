@@ -27,9 +27,9 @@ class UDPClient
 		string sendCommand(string cmd);
 		int sendStreamBuffer(char* pBuffer);
 		int receiveStreamBuffer(char* pBuffer);
-		int setTXBufferSizeByte();
+		void setTXBufferSizeByte(int sizeByte);
+		void setRXBufferSizeByte(int sizeByte);
 		int getTXBufferSizeByte() { return txBufferSizeByte; }
-		int setRXBufferSizeByte();
 		int getRXBufferSizeByte() { return rxBufferSizeByte; }
 		int getServerCommandPort() { return serverCommandPort; }
 		int getServerStreamPort() { return serverStreamPort; }
@@ -50,5 +50,4 @@ class UDPClient
 		int send_count;
 		int recv_count;
 };
-
 

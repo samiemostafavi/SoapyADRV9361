@@ -106,6 +106,25 @@ string Controller::runCommand(string cmdStr)
 
 				response = "done";
 			}
+			else if(vstrings[2]=="buffersize")
+                        {
+                                // convert string to long long
+                                int val;
+                                val = strtoll(vstrings[3].c_str(), &endptr, 10);
+
+				// Stop the thread and everything
+				stop(d);
+
+				if(d==RX)
+					server->setRXBufferSizeByte(val*4);
+				else if(d==TX)
+					server->setTXBufferSizeByte(val*4);
+                                
+				// set the value
+                                dev->setBufferSize(d,val);
+
+                                response = "done";
+                        }
 			else
 			{
 				throw runtime_error("wrong set command");
@@ -156,6 +175,13 @@ string Controller::runCommand(string cmdStr)
 				ss << conf.bw_hz;
 				response = ss.str();
 			}
+			else if(vstrings[2]=="buffersize")
+                        {
+                                int bs = dev->getBufferSize(d);
+				stringstream ss;
+                                ss << bs;
+                                response = ss.str();
+                        }
 			else
 			{
 				throw runtime_error("wrong get command");
@@ -205,7 +231,7 @@ string Controller::runCommand(string cmdStr)
 	}
 	catch(runtime_error& re)
 	{
-		response = string("Runtime error: ") + re.what();
+		response = string("error : ") + re.what();
 	}
 	
 	// printout the request and the response

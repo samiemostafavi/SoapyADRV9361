@@ -152,6 +152,7 @@ IIODevice::IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample,struct stre
         /*if(iio_context_get_devices_count(ctx) == 0);
 		throw runtime_error("No IIO device found");*/
 
+	dev = get
         rx = get_ad9361_stream_dev(ctx, RX);
         tx = get_ad9361_stream_dev(ctx, TX);
 
@@ -244,6 +245,9 @@ void IIODevice::setConfig(struct stream_cfg cfg, enum iodev type)
         if (!get_phy_chan(ctx, type, 0, &chn))
 		throw runtime_error("Could not find physical channel in setConfig");
 
+	// get streaming channel (i only not q)
+	struct iio_channel* strchn = (type == RX) ? get_ad9361_stream_ch(ctx, RX, rx, 0) : get_ad9361_stream_ch(ctx, TX, tx, 0);
+	
 	// get the local config
 	struct stream_cfg lcfg = (type == RX) ? (RXConfig) : (TXConfig);
 	
@@ -260,8 +264,9 @@ void IIODevice::setConfig(struct stream_cfg cfg, enum iodev type)
 	if(cfg.fs_hz != lcfg.fs_hz)
 	{
 	        wr_ch_lli(chn, "sampling_frequency", cfg.fs_hz);
-
-		//if(ad9361_set_bb_rate(dev,(unsigned long)cfg.fs_hz))
+		//wr_ch_lli(strchn, "sampling_frequency", cfg.fs_hz);
+	
+		//if(ad9361_set_bb_rate(get_ad9361_phy(ctx),(unsigned long)cfg.fs_hz))
 		//	throw runtime_error("Unable to set BB rate.");
 	}
 
@@ -395,6 +400,50 @@ void IIODevice::setGainMode(enum iodev d, string gainMode)
 	wr_ch_str(chn, "gain_control_mode", gainMode.c_str());
 }
 
+void setBufferSize(enum iodev d,int s)
+{
+        // check if the streaming is stopped
+        if(isStreaming(type))
+                throw runtime_error(string("set config ") + string((type==RX)?("RX"):("TX"))  + string(" while streaming"));
+	
+	if((s*4) > 65535)
+                throw runtime_error("setting a large buffer size is not possible in UDP");
+
+	switch (d)
+        {
+                case RX:
+                {
+			
+			rxBufferSizeSample = s;
+                        break;
+                }
+                case TX:
+                {
+			
+			txBufferSizeSample = s;
+                        break;
+                }
+                default: { throw runtime_error("Wrong enum iodev"); }
+        }
+}
+
+int getBufferSize(enum iodev d)
+{
+	switch (d)
+        {
+                case RX:
+                {
+                        return rxBufferSizeSample;
+                        break;
+                }
+                case TX:
+                {
+                        return txBufferSizeSample;
+                        break;
+                }
+                default: { throw runtime_error("Wrong enum iodev"); }
+        }
+}
 
 void IIODevice::enableChannels(enum iodev d)
 {
