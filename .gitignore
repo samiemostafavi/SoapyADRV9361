@@ -3,4 +3,4 @@ build/
 boardC/
 *.o
 *.out
-
+*.dat
