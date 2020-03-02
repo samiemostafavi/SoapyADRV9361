@@ -223,3 +223,20 @@ int UDPServer::receiveStreamBuffer(char* pBuffer)
 	recv_count += ret;
 	return ret;
 }
+
+
+void UDPServer::setTXBufferSizeByte(int size)
+{
+	if(size > 65535)
+		throw runtime_error("Unable to set larger than 65535 buffer size TX");
+
+	txBufferSizeByte = size;
+}
+
+void UDPServer::setRXBufferSizeByte(int size)
+{
+	if(size > 65535)
+		throw runtime_error("Unable to set larger than 65535 buffer size RX");
+
+	rxBufferSizeByte = size;
+}

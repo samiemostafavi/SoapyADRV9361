@@ -36,9 +36,9 @@ class UDPServer
 		void runCommand();
                 int sendStreamBuffer(char* pBuffer);
                 int receiveStreamBuffer(char* pBuffer);
-                int setTXBufferSizeByte();
+                void setTXBufferSizeByte(int size);
+                void setRXBufferSizeByte(int size);
                 int getTXBufferSizeByte() { return txBufferSizeByte; }
-                int setRXBufferSizeByte();
                 int getRXBufferSizeByte() { return rxBufferSizeByte; }
                 int getSentCount() { return send_count; }
                 int getRecvCount() { return recv_count; }

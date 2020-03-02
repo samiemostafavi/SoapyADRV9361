@@ -65,6 +65,7 @@ class IIODevice
 		void sendBufferFast();
 		int getRXBufferSizeSample() {return rxBufferSizeSample; }
 		int getTXBufferSizeSample() {return txBufferSizeSample; }
+		void setBufferSizeSample(enum iodev d,int size);
 	private:
 		int rxBufferSizeSample;
 		int txBufferSizeSample;

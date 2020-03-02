@@ -106,6 +106,34 @@ string Controller::runCommand(string cmdStr)
 
 				response = "done";
 			}
+			else if(vstrings[2]=="buffersize")
+			{
+				if(d==RX)
+				{
+					if(rxdev != NULL)
+						throw runtime_error("set buffer size while streaming rx");
+				}
+				if(d==TX)
+				{
+					if(txdev != NULL)
+						throw runtime_error("set buffer size while streaming tx");
+				}
+					
+				// convert string to long long
+				long long val;
+				val = strtoll(vstrings[3].c_str(), &endptr, 10);
+				
+				// set IIODevice buffer size
+				dev->setBufferSizeSample(d,int(val/4));
+
+				// set UDP server buffer size
+				if(d==RX)
+					server->setRXBufferSizeByte(val);
+				if(d==TX)
+					server->setTXBufferSizeByte(val);
+
+				response = "done";
+			}
 			else
 			{
 				throw runtime_error("wrong set command");
@@ -154,6 +182,19 @@ string Controller::runCommand(string cmdStr)
 				struct stream_cfg conf = dev->getConfig(d);
 				stringstream ss;
 				ss << conf.bw_hz;
+				response = ss.str();
+			}
+			else if(vstrings[2]=="buffersize")
+			{
+				int val;
+				// get UDP buffer size
+                                if(d==RX)
+                                        val = server->getRXBufferSizeByte();
+                                if(d==TX)
+                                        val = server->getTXBufferSizeByte();
+
+				stringstream ss;
+				ss << val;
 				response = ss.str();
 			}
 			else

@@ -212,6 +212,17 @@ IIODevice::~IIODevice()
                 iio_context_destroy(ctx);
 }
 
+void IIODevice::setBufferSizeSample(enum iodev d,int size)
+{
+	// Update member variables      
+        switch (d)
+        {
+                case RX: { rxBufferSizeSample = size; break; }
+                case TX: { txBufferSizeSample = size; break; }
+                default: { throw runtime_error("Wrong enum iodev"); }
+        }
+}
+
 char* IIODevice::receiveBuffer()
 {
 	if(rxbuf)

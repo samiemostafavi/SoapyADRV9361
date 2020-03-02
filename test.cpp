@@ -24,6 +24,77 @@ void writeFileTxDif(string file_name, int64_t* txtsp,int size)
 	fclose(write_ptr);
 }
 
+void stream(UDPClient* udpc, int num)
+{
+	// Start 10 seconds RX/TX
+	int64_t dif_timestamp = 0;
+	int64_t tx_dif_timestamp = 0;
+	uint64_t rx_timestamp = 0;
+	int size = udpc->getRXBufferSizeByte();
+	char Buffer[size];
+	int recv_count = 0;
+	int sent_count = 0;
+	int recv_packets = 0;
+	int sent_packets = 0;
+	int failed_packets = 0;
+	int tsize = 10000;
+	//uint64_t* rx_timestamps = new (sizeof(uint64_t)*tsize);
+	//int64_t* txdif_timestamps = new (sizeof(int64_t)*tsize);
+	uint64_t* rx_timestamps = (uint64_t*)malloc(sizeof(uint64_t)*tsize);
+	int64_t* txdif_timestamps = (int64_t*)malloc(sizeof(int64_t)*tsize);
+	while(true)
+	{
+		// Receive the RX buffer
+		int recvMsgSize = udpc->receiveStreamBuffer(Buffer);
+		recv_count += recvMsgSize;
+		recv_packets++;
+
+		// Read the RX timestamp and tx_dif_timestamp
+		uint64_t* rx_timestamp_pointer = (uint64_t*)(Buffer+size-8);
+		uint64_t* tx_dif_timestamp_pointer = (uint64_t*)(Buffer+size-16);
+		dif_timestamp = *rx_timestamp_pointer - rx_timestamp;
+		tx_dif_timestamp = *tx_dif_timestamp_pointer;
+		rx_timestamp = *rx_timestamp_pointer;
+		//printf("RX timestamp: %llu, dif: %llu, tx_dif %lld\n",*rx_timestamp_pointer,dif_timestamp,tx_dif_timestamp);
+
+		// Save the timestamps into the struct
+		rx_timestamps[sent_packets % tsize] = rx_timestamp;
+		txdif_timestamps[sent_packets % tsize] = tx_dif_timestamp;
+
+		// Schedule TX buffer by TX timestamp
+		uint64_t* tx_timestamp_pointer = (uint64_t*)(Buffer+size-8);
+		uint64_t old_val = *tx_timestamp_pointer;
+		*tx_timestamp_pointer = rx_timestamp;
+		//printf("TX timestamp: %llu, old_val: %llu\n",*tx_timestamp_pointer,old_val);
+		//memset(&Buffer,0,sizeof(Buffer) );
+
+		// Send the TX Buffer
+		int sendMsgSize;
+	       	if((sendMsgSize = udpc->sendStreamBuffer(Buffer))>0)
+		{
+	        	sent_count+=sendMsgSize;
+			sent_packets++;
+
+		}
+		else
+			failed_packets++;
+
+		if(sent_packets == num)
+			break;
+	}
+	printf("UDP bytes received %d MB in total, %d packets\n",recv_count/1024/1024,recv_packets);
+	printf("UDP bytes sent %d MB in total, %d packets, %d failed packets\n",sent_count/1024/1024,sent_packets,failed_packets);
+
+#if WRITE_FILE
+
+	// Write the timestamps into the file
+	writeFileRx("rx_timestamps_udp.dat",rx_timestamps,tsize);
+	writeFileTxDif("txdif_timestamps_udp.dat",txdif_timestamps,tsize);
+
+#endif
+	free(rx_timestamps);
+	free(txdif_timestamps);
+}
 
 int main()
 {
@@ -219,75 +290,9 @@ int main()
                 req = "start tx";
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
-	
-		// Start 10 seconds RX/TX
-		int64_t dif_timestamp = 0;
-		int64_t tx_dif_timestamp = 0;
-		uint64_t rx_timestamp = 0;
-		int size = udpc->getRXBufferSizeByte();
-		char Buffer[size];
-		int recv_count = 0;
-		int sent_count = 0;
-		int recv_packets = 0;
-		int sent_packets = 0;
-		int failed_packets = 0;
-		int tsize = 10000;
-		//uint64_t* rx_timestamps = new (sizeof(uint64_t)*tsize);
-		//int64_t* txdif_timestamps = new (sizeof(int64_t)*tsize);
-		uint64_t* rx_timestamps = (uint64_t*)malloc(sizeof(uint64_t)*tsize);
-		int64_t* txdif_timestamps = (int64_t*)malloc(sizeof(int64_t)*tsize);
-		while(true)
-		{
-			// Receive the RX buffer
-			int recvMsgSize = udpc->receiveStreamBuffer(Buffer);
-			recv_count += recvMsgSize;
-			recv_packets++;
 
-			// Read the RX timestamp and tx_dif_timestamp
-			uint64_t* rx_timestamp_pointer = (uint64_t*)(Buffer+size-8);
-			uint64_t* tx_dif_timestamp_pointer = (uint64_t*)(Buffer+size-16);
-			dif_timestamp = *rx_timestamp_pointer - rx_timestamp;
-			tx_dif_timestamp = *tx_dif_timestamp_pointer;
-			rx_timestamp = *rx_timestamp_pointer;
-			//printf("RX timestamp: %llu, dif: %llu, tx_dif %lld\n",*rx_timestamp_pointer,dif_timestamp,tx_dif_timestamp);
-
-			// Save the timestamps into the struct
-			rx_timestamps[sent_packets % tsize] = rx_timestamp;
-			txdif_timestamps[sent_packets % tsize] = tx_dif_timestamp;
-
-			// Schedule TX buffer by TX timestamp
-			uint64_t* tx_timestamp_pointer = (uint64_t*)(Buffer+size-8);
-			uint64_t old_val = *tx_timestamp_pointer;
-			*tx_timestamp_pointer = rx_timestamp;
-			//printf("TX timestamp: %llu, old_val: %llu\n",*tx_timestamp_pointer,old_val);
-			//memset(&Buffer,0,sizeof(Buffer) );
-
-			// Send the TX Buffer
-			int sendMsgSize;
-		       	if((sendMsgSize = udpc->sendStreamBuffer(Buffer))>0)
-			{
-		        	sent_count+=sendMsgSize;
-				sent_packets++;
-
-			}
-			else
-				failed_packets++;
-
-			if(sent_packets == 10000)
-				break;
-		}
-		printf("UDP bytes received %d MB in total, %d packets\n",recv_count/1024/1024,recv_packets);
-		printf("UDP bytes sent %d MB in total, %d packets, %d failed packets\n",sent_count/1024/1024,sent_packets,failed_packets);
-
-#if WRITE_FILE
-
-	// Write the timestamps into the file
-	writeFileRx("rx_timestamps_udp.dat",rx_timestamps,tsize);
-	writeFileTxDif("txdif_timestamps_udp.dat",txdif_timestamps,tsize);
-
-#endif
-		free(rx_timestamps);
-		free(txdif_timestamps);
+		// Stream for a number
+		stream(udpc,10000);
 
 		// Disable Channels
 		req.clear(); res.clear();
@@ -300,15 +305,56 @@ int main()
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
 
-		// Buffer size
-                req.clear(); res.clear();
+		// Buffer size RX
+		req.clear(); res.clear();
+                req = "get rx buffersize";
+                res = udpc->sendCommand(req);
+                cout << "Req: " << req << " - Res: " << res << endl;
+
 		udpc->setRXBufferSizeByte(8*1024*4);
+		cout << "set rx buffersize 8*1024*4" << endl;
+		
+		req.clear(); res.clear();
+                req = "get rx buffersize";
+                res = udpc->sendCommand(req);
+                cout << "Req: " << req << " - Res: " << res << endl;
+		
+		// Buffer size TX
+		req.clear(); res.clear();
+                req = "get tx buffersize";
+                res = udpc->sendCommand(req);
+                cout << "Req: " << req << " - Res: " << res << endl;
+
 		udpc->setTXBufferSizeByte(8*1024*4);
+                cout << "Set tx buffersize 8*1024*4 " << endl;
 
-                cout << "Set buffer size 8*1024*4: " << endl;
+		req.clear(); res.clear();
+                req = "get tx buffersize";
+                res = udpc->sendCommand(req);
+                cout << "Req: " << req << " - Res: " << res << endl;
+		
+		// Enable Channels
+		req.clear(); res.clear();
+                req = "start rx";
+                res = udpc->sendCommand(req);
+                cout << "Req: " << req << " - Res: " << res << endl;
+		
+		req.clear(); res.clear();
+                req = "start tx";
+                res = udpc->sendCommand(req);
+                cout << "Req: " << req << " - Res: " << res << endl;
+		
+		// Stream for a number
+		stream(udpc,10000);
 
-                req.clear(); res.clear();
-                req = "get tx antenna";
+		// Disable Channels
+		req.clear(); res.clear();
+                req = "stop rx";
+                res = udpc->sendCommand(req);
+                cout << "Req: " << req << " - Res: " << res << endl;
+		
+		req.clear(); res.clear();
+                req = "stop tx";
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
 
