@@ -68,22 +68,6 @@ UDPServer::~UDPServer()
 	close(streamSocket);
 }
 
-void setTXBufferSizeByte(int sb)
-{
-	if(sb > 65535)
-		throw runtime_error("setting a large buffer size is not possible in UDP");
-
-	txBufferSizeByte = sb;
-}
-
-void setRXBufferSizeByte(int sb)
-{
-	if(sb > 65535)
-		throw runtime_error("setting a large buffer size is not possible in UDP");
-	
-	rxBufferSizeByte = sb;
-}
-
 void UDPServer::initClient(struct sockaddr_in cliAddr)
 {
 	// stop controller

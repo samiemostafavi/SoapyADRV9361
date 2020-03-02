@@ -106,25 +106,6 @@ string Controller::runCommand(string cmdStr)
 
 				response = "done";
 			}
-			else if(vstrings[2]=="buffersize")
-                        {
-                                // convert string to long long
-                                int val;
-                                val = strtoll(vstrings[3].c_str(), &endptr, 10);
-
-				// Stop the thread and everything
-				stop(d);
-
-				if(d==RX)
-					server->setRXBufferSizeByte(val*4);
-				else if(d==TX)
-					server->setTXBufferSizeByte(val*4);
-                                
-				// set the value
-                                dev->setBufferSize(d,val);
-
-                                response = "done";
-                        }
 			else
 			{
 				throw runtime_error("wrong set command");
@@ -175,13 +156,6 @@ string Controller::runCommand(string cmdStr)
 				ss << conf.bw_hz;
 				response = ss.str();
 			}
-			else if(vstrings[2]=="buffersize")
-                        {
-                                int bs = dev->getBufferSize(d);
-				stringstream ss;
-                                ss << bs;
-                                response = ss.str();
-                        }
 			else
 			{
 				throw runtime_error("wrong get command");
@@ -192,25 +166,34 @@ string Controller::runCommand(string cmdStr)
 			// first a clean stop
 			stop(d);
 
-			// enable streaming
-			dev->enableChannels(d);
-
 			// Start streaming thread
 			switch (d)
 			{
 		        	case RX:
 			        {
 					// Start the rx streamer thread
-					if(pthread_create(&rx_thread, NULL, &Controller::streamRX,this) != 0)
+			                rx_thread_active = true;
+					
+					// Start the rx streamer thread
+					pthread_t newThread;
+					if(pthread_create(&newThread, NULL, &Controller::streamRX,this) != 0)
 					        throw runtime_error("Unable to start stream RX thread");
-
+					
+					rx_thread = newThread;
+					
 		                	break;
 		        	}
 			        case TX:
 			        {
+					// Start the rx streamer thread
+			                tx_thread_active = true;
+
 					// Start the tx streamer thread
-					if(pthread_create(&tx_thread, NULL, &Controller::streamTX,this) != 0)
+					pthread_t newThread;
+					if(pthread_create(&newThread, NULL, &Controller::streamTX,this) != 0)
 					        throw runtime_error("Unable to start stream TX thread");
+					
+					tx_thread = newThread;
 
 		                	break;
 		        	}
@@ -249,12 +232,16 @@ void* Controller::streamRX(void* controller)
 	
 	p->rx_thread_active = true;
 
+	// new rx dev 
+	p->rxdev = new IIODevice(p->dev->getRXBufferSizeSample(),p->dev->getTXBufferSizeSample()); 
+	p->rxdev->enableChannels(RX);
+
 	try
 	{
 		while(p->rx_thread_active)
                 {
 			// get the buffer from IIO
-			char* buffer = p->dev->receiveBuffer();
+			char* buffer = p->rxdev->receiveBuffer();
 			// send it to the network
 			p->server->sendStreamBuffer(buffer);
 		}
@@ -264,6 +251,10 @@ void* Controller::streamRX(void* controller)
         {
                 cout << "Runtime error: " << re.what() << endl;
         }
+	
+	p->rxdev->disableChannels(RX);
+	delete(p->rxdev);
+	p->rxdev = NULL;
 
 	// Announce
 	p->rx_thread_active = false;
@@ -279,23 +270,32 @@ void* Controller::streamTX(void* controller)
 		throw runtime_error("Server is not initialized yet in streamTX.");
 
 	p->tx_thread_active = true;
+
+	// new tx dev 
+        p->txdev = new IIODevice(p->dev->getRXBufferSizeSample(),p->dev->getTXBufferSizeSample());
+	p->txdev->enableChannels(TX);
 	
 	try
 	{
 		while(p->tx_thread_active)
                 {
 			// get the IIO buffer pointer
-			char* buffer = p->dev->getTXBufferPointer();
+			char* buffer = p->txdev->getTXBufferPointer();
 			// fill it from the network
 			p->server->receiveStreamBuffer(buffer);
 			// push IIO buffer
-			p->dev->sendBufferFast();
+			p->txdev->sendBufferFast();
 		}
 	}
 	catch(runtime_error& re)
         {
                 cout << "Runtime error: " << re.what() << endl;
         }
+	
+	// delete and finish txdev
+	p->txdev->disableChannels(TX);
+	delete(p->txdev);
+	p->txdev = NULL;
 
 	// Announce
 	p->tx_thread_active = false;
@@ -312,9 +312,14 @@ void Controller::stop(enum iodev d)
 		// Join thread
         	pthread_cancel(rx_thread);
         	pthread_join(rx_thread, NULL);
-		
-		// Stop streaming
-	        dev->disableChannels(RX);
+	
+		// Delete rxdev if exists	
+		if(rxdev != NULL)
+		{
+		        rxdev->disableChannels(RX);
+			delete(rxdev);
+			rxdev = NULL;
+		}	
 	}
 	else if(d==TX)
 	{
@@ -325,7 +330,12 @@ void Controller::stop(enum iodev d)
         	pthread_cancel(tx_thread);
         	pthread_join(tx_thread, NULL);
 		
-		// Stop streaming
-	        dev->disableChannels(TX);
+		// Delete txdev if exists
+		if(txdev != NULL)
+		{
+		        txdev->disableChannels(TX);
+			delete(txdev);
+			txdev = NULL;
+		}
 	}
 }

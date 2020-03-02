@@ -30,14 +30,14 @@ int main (int argc, char **argv)
 	struct stream_cfg initRXConf;
 
 	initRXConf.bw_hz = MHZ(4.695); 
-	initRXConf.fs_hz = MHZ(1.92);
+	initRXConf.fs_hz = MHZ(5.76);
 	initRXConf.lo_hz = GHZ(2.680005);
 	initRXConf.rfport = "A_BALANCED";
 
 	struct stream_cfg initTXConf;
 	
 	initTXConf.bw_hz = MHZ(4.373);
-	initTXConf.fs_hz = MHZ(1.92);
+	initTXConf.fs_hz = MHZ(5.76);
 	initTXConf.lo_hz = GHZ(2.560005);
 	initTXConf.rfport = "A";
 

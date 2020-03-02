@@ -123,7 +123,7 @@ int UDPClient::sendStreamBuffer(char* pBuffer)
 {
 	int ret = send(streamSocket, pBuffer, txBufferSizeByte, 0);
 	if(ret < 0)
-        	throw runtime_error("Sending the buffer failed");
+		return ret;
 
 	send_count += ret;
 	return ret;
@@ -133,7 +133,7 @@ int UDPClient::receiveStreamBuffer(char* pBuffer)
 {
 	int ret = recv(streamSocket, pBuffer, rxBufferSizeByte, 0);
         if(ret < 0)
-        	throw runtime_error("Receiving the buffer faild");
+		return ret;
 
 	recv_count += ret;
 	return ret;

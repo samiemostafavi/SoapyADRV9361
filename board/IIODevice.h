@@ -48,6 +48,7 @@ class IIODevice
 {
 	public:
 		IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample, struct stream_cfg _RXConfig, struct stream_cfg _TXConfig);
+		IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample);
 		~IIODevice();
 		void enableChannels(enum iodev d);
 		void disableChannels(enum iodev d);
@@ -62,8 +63,8 @@ class IIODevice
 		void sendBuffer(char* buffer);
 		char* getTXBufferPointer();
 		void sendBufferFast();
-		void setBufferSize(enum iodev d,int s);
-		int getBufferSize(enum iodev d);
+		int getRXBufferSizeSample() {return rxBufferSizeSample; }
+		int getTXBufferSizeSample() {return txBufferSizeSample; }
 	private:
 		int rxBufferSizeSample;
 		int txBufferSizeSample;

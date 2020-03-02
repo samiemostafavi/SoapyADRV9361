@@ -8,19 +8,19 @@ using namespace std;
 
 #define WRITE_FILE 1
 
-void writeFileRx(char* file_name)
+void writeFileRx(string file_name,uint64_t* rxtsp,int size)
 {
 	FILE *write_ptr;
-	write_ptr = fopen(file_name,"wb");  // w for write, b for binary
-	fwrite(phandler->rx_timestamps,sizeof(uint64_t)*TIMESTAMP_BUFF_SIZE,1,write_ptr);
+	write_ptr = fopen(file_name.c_str(),"wb");  // w for write, b for binary
+	fwrite(rxtsp,sizeof(uint64_t)*size,1,write_ptr);
 	fclose(write_ptr);
 }
 
-void writeFileTxDif(char* file_name)
+void writeFileTxDif(string file_name, int64_t* txtsp,int size)
 {
 	FILE *write_ptr;
-	write_ptr = fopen(file_name,"wb");  // w for write, b for binary
-	fwrite(phandler->txdif_timestamps,sizeof(int64_t)*TIMESTAMP_BUFF_SIZE,1,write_ptr);
+	write_ptr = fopen(file_name.c_str(),"wb");  // w for write, b for binary
+	fwrite(txtsp,sizeof(int64_t)*size,1,write_ptr);
 	fclose(write_ptr);
 }
 
@@ -29,7 +29,7 @@ int main()
 {
 	try
 	{
-		UDPClient* udpc = new UDPClient(50707,50708, "10.0.9.1",15*1024,15*1024);
+		UDPClient* udpc = new UDPClient(50707,50708, "10.0.9.1",15*1024*4,15*1024*4);
 		string req;
 		string res;
 		
@@ -227,14 +227,15 @@ int main()
 		int size = udpc->getRXBufferSizeByte();
 		char Buffer[size];
 		int recv_count = 0;
-		int send_count = 0;
+		int sent_count = 0;
 		int recv_packets = 0;
-		int send_packets = 0;
-		uint64_t* rx_timestamps;
-		int64_t* txdif_timestamps;
+		int sent_packets = 0;
+		int failed_packets = 0;
 		int tsize = 10000;
-		rx_timestamps = new (sizeof(uint64_t)*tsize);
-		txdif_timestamps = new (sizeof(int64_t)*tsize);
+		//uint64_t* rx_timestamps = new (sizeof(uint64_t)*tsize);
+		//int64_t* txdif_timestamps = new (sizeof(int64_t)*tsize);
+		uint64_t* rx_timestamps = (uint64_t*)malloc(sizeof(uint64_t)*tsize);
+		int64_t* txdif_timestamps = (int64_t*)malloc(sizeof(int64_t)*tsize);
 		while(true)
 		{
 			// Receive the RX buffer
@@ -243,8 +244,8 @@ int main()
 			recv_packets++;
 
 			// Read the RX timestamp and tx_dif_timestamp
-			uint64_t* rx_timestamp_pointer = Buffer+size-8;
-			uint64_t* tx_dif_timestamp_pointer = Buffer+size-16;
+			uint64_t* rx_timestamp_pointer = (uint64_t*)(Buffer+size-8);
+			uint64_t* tx_dif_timestamp_pointer = (uint64_t*)(Buffer+size-16);
 			dif_timestamp = *rx_timestamp_pointer - rx_timestamp;
 			tx_dif_timestamp = *tx_dif_timestamp_pointer;
 			rx_timestamp = *rx_timestamp_pointer;
@@ -255,29 +256,38 @@ int main()
 			txdif_timestamps[sent_packets % tsize] = tx_dif_timestamp;
 
 			// Schedule TX buffer by TX timestamp
-			uint64_t* tx_timestamp_pointer = Buffer+size-8;
+			uint64_t* tx_timestamp_pointer = (uint64_t*)(Buffer+size-8);
 			uint64_t old_val = *tx_timestamp_pointer;
 			*tx_timestamp_pointer = rx_timestamp;
 			//printf("TX timestamp: %llu, old_val: %llu\n",*tx_timestamp_pointer,old_val);
 			//memset(&Buffer,0,sizeof(Buffer) );
 
 			// Send the TX Buffer
-			int sendMsgSize = udpc->sendStreamBuffer(rxBuffer);
-		        sent_count+=sendMsgSize;
-			send_packets++;
+			int sendMsgSize;
+		       	if((sendMsgSize = udpc->sendStreamBuffer(Buffer))>0)
+			{
+		        	sent_count+=sendMsgSize;
+				sent_packets++;
+
+			}
+			else
+				failed_packets++;
+
+			if(sent_packets == 10000)
+				break;
 		}
-		free(rx_timestamps);
-		free(txdif_timestamps);
-		printf("UDP bytes received %lld MB in total, %d packets\n",phandler->recv_count/1024/1024,phandler->recv_packets);
-		printf("UDP bytes sent %lld MB in total, %d packets\n",phandler->sent_count/1024/1024,phandler->sent_packets);
+		printf("UDP bytes received %d MB in total, %d packets\n",recv_count/1024/1024,recv_packets);
+		printf("UDP bytes sent %d MB in total, %d packets, %d failed packets\n",sent_count/1024/1024,sent_packets,failed_packets);
 
 #if WRITE_FILE
 
 	// Write the timestamps into the file
-	writeFileRx("rx_timestamps_udp.dat");
-	writeFileTxDif("txdif_timestamps_udp.dat");
+	writeFileRx("rx_timestamps_udp.dat",rx_timestamps,tsize);
+	writeFileTxDif("txdif_timestamps_udp.dat",txdif_timestamps,tsize);
 
 #endif
+		free(rx_timestamps);
+		free(txdif_timestamps);
 
 		// Disable Channels
 		req.clear(); res.clear();
@@ -287,6 +297,18 @@ int main()
 		
 		req.clear(); res.clear();
                 req = "stop tx";
+                res = udpc->sendCommand(req);
+                cout << "Req: " << req << " - Res: " << res << endl;
+
+		// Buffer size
+                req.clear(); res.clear();
+		udpc->setRXBufferSizeByte(8*1024*4);
+		udpc->setTXBufferSizeByte(8*1024*4);
+
+                cout << "Set buffer size 8*1024*4: " << endl;
+
+                req.clear(); res.clear();
+                req = "get tx antenna";
                 res = udpc->sendCommand(req);
                 cout << "Req: " << req << " - Res: " << res << endl;
 

@@ -152,12 +152,51 @@ IIODevice::IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample,struct stre
         /*if(iio_context_get_devices_count(ctx) == 0);
 		throw runtime_error("No IIO device found");*/
 
-	dev = get
-        rx = get_ad9361_stream_dev(ctx, RX);
-        tx = get_ad9361_stream_dev(ctx, TX);
+        // rx = get_ad9361_stream_dev(ctx, RX);
+        // tx = get_ad9361_stream_dev(ctx, TX);
 
 	setConfig(_RXConfig, RX);
 	setConfig(_TXConfig, TX);
+
+	getGain(RX);
+	getGain(TX);
+}
+
+IIODevice::IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample) :
+	rxBufferSizeSample(_rxBufferSizeSample), txBufferSizeSample(_txBufferSizeSample)
+{
+
+	rxIsStreaming = false;
+	txIsStreaming = false;
+
+        RXConfig.bw_hz = 0;
+        RXConfig.fs_hz = 0;
+        RXConfig.lo_hz = 0;
+        RXConfig.rfport = "";
+
+        TXConfig.bw_hz = 0;
+        TXConfig.fs_hz = 0;
+        TXConfig.lo_hz = 0;
+        TXConfig.rfport = "";
+
+	rxbuf = NULL;
+        rx0_i = NULL;
+        rx0_q = NULL;
+        txbuf = NULL;
+        tx0_i = NULL;
+        tx0_q = NULL;
+
+        if((ctx = iio_create_default_context()) == NULL)
+		throw runtime_error("No context");
+
+        /*if(iio_context_get_devices_count(ctx) == 0);
+		throw runtime_error("No IIO device found");*/
+
+        // rx = get_ad9361_stream_dev(ctx, RX);
+        // tx = get_ad9361_stream_dev(ctx, TX);
+
+	RXConfig = getConfig(RX);
+        TXConfig = getConfig(TX);
 
 	getGain(RX);
 	getGain(TX);
@@ -245,15 +284,9 @@ void IIODevice::setConfig(struct stream_cfg cfg, enum iodev type)
         if (!get_phy_chan(ctx, type, 0, &chn))
 		throw runtime_error("Could not find physical channel in setConfig");
 
-	// get streaming channel (i only not q)
-	struct iio_channel* strchn = (type == RX) ? get_ad9361_stream_ch(ctx, RX, rx, 0) : get_ad9361_stream_ch(ctx, TX, tx, 0);
-	
 	// get the local config
 	struct stream_cfg lcfg = (type == RX) ? (RXConfig) : (TXConfig);
 	
-	// get the dev
-	struct iio_device* dev = (type == RX) ? (rx) : (tx);
-
 	// compare each parameter, update the new ones only
 	if(cfg.rfport != lcfg.rfport)
 	        wr_ch_str(chn, "rf_port_select",     cfg.rfport.c_str());
@@ -263,9 +296,9 @@ void IIODevice::setConfig(struct stream_cfg cfg, enum iodev type)
 
 	if(cfg.fs_hz != lcfg.fs_hz)
 	{
-	        wr_ch_lli(chn, "sampling_frequency", cfg.fs_hz);
+		wr_ch_lli(chn, "sampling_frequency", cfg.fs_hz);
 		//wr_ch_lli(strchn, "sampling_frequency", cfg.fs_hz);
-	
+		
 		//if(ad9361_set_bb_rate(get_ad9361_phy(ctx),(unsigned long)cfg.fs_hz))
 		//	throw runtime_error("Unable to set BB rate.");
 	}
@@ -400,50 +433,6 @@ void IIODevice::setGainMode(enum iodev d, string gainMode)
 	wr_ch_str(chn, "gain_control_mode", gainMode.c_str());
 }
 
-void setBufferSize(enum iodev d,int s)
-{
-        // check if the streaming is stopped
-        if(isStreaming(type))
-                throw runtime_error(string("set config ") + string((type==RX)?("RX"):("TX"))  + string(" while streaming"));
-	
-	if((s*4) > 65535)
-                throw runtime_error("setting a large buffer size is not possible in UDP");
-
-	switch (d)
-        {
-                case RX:
-                {
-			
-			rxBufferSizeSample = s;
-                        break;
-                }
-                case TX:
-                {
-			
-			txBufferSizeSample = s;
-                        break;
-                }
-                default: { throw runtime_error("Wrong enum iodev"); }
-        }
-}
-
-int getBufferSize(enum iodev d)
-{
-	switch (d)
-        {
-                case RX:
-                {
-                        return rxBufferSizeSample;
-                        break;
-                }
-                case TX:
-                {
-                        return txBufferSizeSample;
-                        break;
-                }
-                default: { throw runtime_error("Wrong enum iodev"); }
-        }
-}
 
 void IIODevice::enableChannels(enum iodev d)
 {
@@ -455,12 +444,26 @@ void IIODevice::enableChannels(enum iodev d)
 				throw runtime_error("Enabling rx channel again, disable first");
 
 			printf("Creating RX buffers and channels\n");
+        		rx = get_ad9361_stream_dev(ctx, RX);
+			if(rx == NULL)
+				throw runtime_error("Unable to get the rx stream dev");
+
         		rx0_i = get_ad9361_stream_ch(ctx, RX, rx, 0);
-		        rx0_q = get_ad9361_stream_ch(ctx, RX, rx, 1);
+			if(rx0_i == NULL)
+				throw runtime_error("Unable to get the rx stream channel i");
+		        
+			rx0_q = get_ad9361_stream_ch(ctx, RX, rx, 1);
+			if(rx0_q == NULL)
+				throw runtime_error("Unable to get the rx stream channel q");
+			
 			iio_channel_enable(rx0_i);
         		iio_channel_enable(rx0_q);
-		        rxbuf = iio_device_create_buffer(rx, rxBufferSizeSample, false);
-			
+		        
+			if(rxbuf == NULL)
+				rxbuf = iio_device_create_buffer(rx, rxBufferSizeSample, false);
+			if(rxbuf == NULL)
+				throw runtime_error("Unable to create the rx buffer");
+							
 			rxIsStreaming = true;
 			
 			break;
@@ -471,11 +474,25 @@ void IIODevice::enableChannels(enum iodev d)
 				throw runtime_error("Enabling tx channel again, disable first");
 			
 			printf("Creating TX buffers and channels\n");
+        		tx = get_ad9361_stream_dev(ctx, TX);
+			if(tx == NULL)
+				throw runtime_error("Unable to get the tx stream dev");
+
         		tx0_i = get_ad9361_stream_ch(ctx, TX, tx, 0);
+			if(tx0_i == NULL)
+				throw runtime_error("Unable to get the tx stream channel i");
+
 		        tx0_q = get_ad9361_stream_ch(ctx, TX, tx, 1);
+			if(tx0_q == NULL)
+				throw runtime_error("Unable to get the tx stream channel q");
+
 			iio_channel_enable(tx0_i);
         		iio_channel_enable(tx0_q);
-		        txbuf = iio_device_create_buffer(tx, txBufferSizeSample, false);
+
+			if(txbuf == NULL)
+		        	txbuf = iio_device_create_buffer(tx, txBufferSizeSample, false);
+			if(txbuf == NULL)
+				throw runtime_error(string("Unable to create the tx buffer: ") + string(strerror(errno)));
 
 			txIsStreaming = true;
 			
@@ -492,28 +509,56 @@ void IIODevice::disableChannels(enum iodev d)
 	{
         	case RX:
 		{
-			printf("Destroying RX buffers and channels\n");
-			if (rxbuf) { iio_buffer_destroy(rxbuf); rxbuf = NULL; }
-			if (rx0_i) { iio_channel_disable(rx0_i); rx0_i = NULL; }
-			if (rx0_q) { iio_channel_disable(rx0_q); rx0_q = NULL; }
+			if (rxbuf) 
+			{
+				printf("Destroying RX buffer\n");
+				iio_buffer_cancel(rxbuf); 
+				iio_buffer_destroy(rxbuf); 
+				rxbuf = NULL;
+			}
+			if (rx0_i) 
+			{ 
+				printf("Disabling RX channel i\n");
+				iio_channel_disable(rx0_i); 
+				rx0_i = NULL; 
+			}
+			if (rx0_q) 
+			{ 
+				printf("Disabling RX channel q\n");
+				iio_channel_disable(rx0_q); 
+				rx0_q = NULL; 
+			}
 			rxIsStreaming = false;
-
 			break;
 		}
 	        case TX:
 		{
-			printf("Destroying TX buffers and channels\n");
-			if (txbuf) { iio_buffer_destroy(txbuf); txbuf = NULL; }
-			if (tx0_i) { iio_channel_disable(tx0_i); tx0_i = NULL; }
-			if (tx0_q) { iio_channel_disable(tx0_q); tx0_q = NULL; }
+			if (txbuf) 
+			{
+				printf("Destroying TX buffer\n");
+				iio_buffer_cancel(txbuf); 
+				iio_buffer_destroy(txbuf); 
+				txbuf = NULL;
+			}
+			if (tx0_i) 
+			{ 
+				printf("Disabling TX channel i\n");
+				iio_channel_disable(tx0_i); 
+				tx0_i = NULL; 
+			}
+			if (tx0_q) 
+			{ 
+				printf("Disabling TX channel q\n");
+				iio_channel_disable(tx0_q); 
+				tx0_q = NULL;
+			}
 			txIsStreaming = false;
-
 			break;
 		}
                 default: { throw runtime_error("Wrong enum iodev"); }
         }
+        
+
 
 }
-
-
 

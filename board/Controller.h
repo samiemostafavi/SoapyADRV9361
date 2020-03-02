@@ -20,13 +20,15 @@ class UDPServer;
 class Controller
 {
         public:
-                Controller(IIODevice* _dev) : dev(_dev),server(NULL) {}
+                Controller(IIODevice* _dev) : dev(_dev),server(NULL),rxdev(NULL),txdev(NULL) {}
                 ~Controller() { stop(RX); stop(TX); }
                 string runCommand(string cmdStr);
 		void stop(enum iodev d);
 		void setServer(UDPServer* _server) { server = _server; }
         private:
                 IIODevice* dev;
+                IIODevice* rxdev;
+                IIODevice* txdev;
 		UDPServer* server;
 		bool rx_thread_active;
 		bool tx_thread_active;
