@@ -242,7 +242,21 @@ string Controller::runCommand(string cmdStr)
 	  	}
 		else if (vstrings[0]=="stop")
 		{
-			stop(d);
+			switch (d)
+                        {
+                                case RX:
+                                {
+					if(rx_thread_active)
+						stop(RX);
+					break;
+				}
+				case TX:
+				{
+					if(tx_thread_active)
+						stop(TX);
+					break;
+				}
+			}
 			response = "done";
 	  	}
 		else

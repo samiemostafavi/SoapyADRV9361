@@ -1,5 +1,20 @@
 #include "UDPClient.h"
 
+
+bool UDPClient::findServer(int _serverCommandPort,int _serverStreamPort, string _serverIP)
+{
+	try
+	{
+		UDPClient* clnt = new UDPClient(_serverCommandPort,_serverStreamPort,_serverIP,15*1024*4,15*1024*4);
+		delete(clnt);
+	}
+	catch(runtime_error& re)
+        {
+		return false;
+        }
+	return true;
+}
+
 UDPClient::UDPClient(int _serverCommandPort,int _serverStreamPort,string _serverIP,int _rxBufferSizeByte,int _txBufferSizeByte) : 
 	serverCommandPort(_serverCommandPort), serverStreamPort(_serverStreamPort), serverIP(_serverIP) , rxBufferSizeByte(_rxBufferSizeByte), txBufferSizeByte(_txBufferSizeByte)
 {

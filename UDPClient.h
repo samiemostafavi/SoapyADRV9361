@@ -24,6 +24,7 @@ class UDPClient
 	public:
 		UDPClient(int _serverCommandPort,int _serverStreamPort, string _serverIP,int _rxBufferSizeByte,int _txBufferSizeByte);
 		~UDPClient();
+		static bool findServer(int _serverCommandPort,int _serverStreamPort, string _serverIP);
 		string sendCommand(string cmd);
 		int sendStreamBuffer(char* pBuffer);
 		int receiveStreamBuffer(char* pBuffer);

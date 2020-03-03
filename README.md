@@ -1,4 +1,4 @@
-# Soapy SDR module for Pluto SDR
+# Soapy SDR module for Analog Devices ADRV9361 SDR
 
 ## Installation instructions
 
@@ -14,7 +14,5 @@ sudo make install
 
 ## Dependencies
 
-- [libiio](https://github.com/analogdevicesinc/libiio)
-- [libad9361](https://github.com/analogdevicesinc/libad9361-iio)
 - [SoapySDR](https://github.com/pothosware/SoapySDR)
 
