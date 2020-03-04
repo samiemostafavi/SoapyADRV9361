@@ -114,12 +114,10 @@ SoapySDR::Stream *SoapyAdrvSDR::setupStream(const int direction, const std::stri
 
 	if(direction == SOAPY_SDR_RX)
 	{
-
         	std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
         	this->rx_stream = std::unique_ptr<rx_streamer>(new rx_streamer(udpc,streamFormat, channels, args, phandler));
         	return reinterpret_cast<SoapySDR::Stream*>(this->rx_stream.get());
 	}
-
 	else if (direction == SOAPY_SDR_TX) 
 	{
         	std::lock_guard<pluto_spin_mutex> lock(tx_device_mutex);
@@ -169,10 +167,20 @@ int SoapyAdrvSDR::activateStream(SoapySDR::Stream *handle, const int flags, cons
 	if (flags & ~SOAPY_SDR_END_BURST)
 		return SOAPY_SDR_NOT_SUPPORTED;
 
-    	std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 
-    	if (IsValidRxStreamHandle(handle)) 
-        	return this->rx_stream->start(flags, timeNs, numElems);
+    	if (IsValidRxStreamHandle(handle))
+	{
+        	SoapySDR_logf(SOAPY_SDR_INFO, "Activating the rx stream");
+		std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
+        	this->rx_stream->start(flags, timeNs, numElems);
+	}
+        	
+    	if (IsValidTxStreamHandle(handle))
+	{
+        	SoapySDR_logf(SOAPY_SDR_INFO, "Activating the tx stream");
+		std::lock_guard<pluto_spin_mutex> lock(tx_device_mutex);
+		this->tx_stream->start(flags, timeNs, numElems);
+	}
     	
 	return 0;
 }
@@ -184,7 +192,10 @@ int SoapyAdrvSDR::deactivateStream(SoapySDR::Stream *handle,const int flags,cons
         	std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 
 		if (IsValidRxStreamHandle(handle))
-			return this->rx_stream->stop(flags, timeNs);
+		{
+			SoapySDR_logf(SOAPY_SDR_INFO, "Deactivating the rx stream");
+			this->rx_stream->stop(flags, timeNs);
+		}
 	}
 
 	//scope lock :
@@ -193,8 +204,9 @@ int SoapyAdrvSDR::deactivateStream(SoapySDR::Stream *handle,const int flags,cons
 
 		if (IsValidTxStreamHandle(handle)) 
 		{
+			SoapySDR_logf(SOAPY_SDR_INFO, "Deactivating the tx stream");
 			this->tx_stream->flush();
-			return 0;
+			this->tx_stream->stop(flags, timeNs);
 		}
 	}
 	return 0;
@@ -203,7 +215,7 @@ int SoapyAdrvSDR::deactivateStream(SoapySDR::Stream *handle,const int flags,cons
 int SoapyAdrvSDR::readStream(SoapySDR::Stream *handle,void * const *buffs,const size_t numElems,int &flags,long long &timeNs,const long timeoutUs )
 {
 	//the spin_mutex is especially very useful here for minimum overhead !
-	std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
+	//std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 
 	if (IsValidRxStreamHandle(handle))
 		return int(this->rx_stream->receive(buffs, numElems, flags, timeNs, timeoutUs));
@@ -213,7 +225,7 @@ int SoapyAdrvSDR::readStream(SoapySDR::Stream *handle,void * const *buffs,const 
 
 int SoapyAdrvSDR::writeStream(SoapySDR::Stream *handle,const void * const *buffs,const size_t numElems,int &flags,const long long timeNs,const long timeoutUs )
 {
-	std::lock_guard<pluto_spin_mutex> lock(tx_device_mutex);
+	//std::lock_guard<pluto_spin_mutex> lock(tx_device_mutex);
 
 	if (IsValidTxStreamHandle(handle))
 		return this->tx_stream->send(buffs, numElems, flags, timeNs, timeoutUs);
@@ -306,7 +318,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 		{
 			// Read the RX timestamp and tx_dif_timestamp
 	                uint64_t* rx_timestamp_pointer = (uint64_t*)(rx_buffer+(buffer_size*4)-8);
-			//printf("%lld\n",phandler->rxTimestampDif);
+			//printf("Got a timestamp in: %lld, received items: %d\n",phandler->rxTimestampDif,ret/4);
 			phandler->rxTimestampNS = *rx_timestamp_pointer;
 			ret = ret - 8;
 		
@@ -404,7 +416,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 
         // timeNs_sub is the value calculated and should be subtracted from reg_timeNs based on the interpolateion
         uint64_t timeNs_sub = (double)(bytes_remain)/(double)4*evr;
-        //printf("from SoapyPluto reg_timeNs: %llu, byte_offset: %lu, bytes_remain: %lu, sampling_freq: %d, 4 bytes every: %lf ns\n",reg_timeNs,byte_offset,bytes_remain, sampling_freq,evr);
+        // printf("from SoapyAdrv reg_timeNs: %llu, byte_offset: %lu, bytes_remain: %lu, sampling_freq: %d, 4 bytes every: %lf ns\n",reg_timeNs,byte_offset,bytes_remain, sampling_freq,evr);
         timeNs = reg_timeNs - timeNs_sub;
 	
 	//printf("New RX timestamp: %llu\n",timeNs);
@@ -412,7 +424,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 	items_in_buffer -= items;
 	byte_offset += items * 4;
 
-	//printf("rx_streamer: New RX items: %d, timestamp: %llu\n",items,timeNs);
+	// printf("rx_streamer: New RX items: %d, timestamp: %llu\n",items,timeNs);
 
 	return(items);
 }

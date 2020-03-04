@@ -117,12 +117,13 @@ void* UDPServer::runCommands(void* server)
 			unsigned int cliAddrLen = sizeof(cliAddr);
 			if ((ret = recvfrom(p->commandSocket, msg, MESSAGE_LENGTH_CHAR, 0,(struct sockaddr *) &(cliAddr), &cliAddrLen)) < 0 )
         	        	throw runtime_error("Unable to receive first command");
-
+			
 			if(ret == 0)
 			{
 				cout << "UDP empty datagram received, continue..." << endl;
 				continue;
 			}
+
 
 			if(string(msg,ret)=="init")
 			{
@@ -167,21 +168,31 @@ void UDPServer::runCommand()
 {
 	int ret;
 	char msg[MESSAGE_LENGTH_CHAR];
+	memset(msg,0,MESSAGE_LENGTH_CHAR);
 	struct sockaddr_in cliAddr;
 	unsigned int cliAddrLen = sizeof(cliAddr);
-	//cout << "waiting for commands" << endl;
-	if ((ret = recvfrom(commandSocket, msg, MESSAGE_LENGTH_CHAR, 0,(struct sockaddr *) &(cliAddr), &cliAddrLen)) < 0 )
+	ret = recvfrom(commandSocket, msg, MESSAGE_LENGTH_CHAR, 0,(struct sockaddr *) &(cliAddr), &cliAddrLen);
+	if (ret <= 0)
                	throw runtime_error("Unable to receive first command");
 
+	//cout << "char: " << ret << " " << msg << endl;
+	
+	char res[ret];
+	strcpy(res,msg);
+	
+	string smsg;
+	smsg.assign(res,ret);
+	
+	//cout << "Received cmdstr: " << smsg << endl;
+	
 	if(ret == 0)		
 	{
 		cout << "UDP empty datagram received, continue..." << endl;
 		return;
 	}
 
-	//cout << "Received cmd: " << string(msg,ret) << endl;
 
-	if(string(msg,ret)=="init")
+	if(smsg=="init")
 	{
 		// A new client is there, fix the addresses
 		initClient(cliAddr);
@@ -196,7 +207,7 @@ void UDPServer::runCommand()
 	}
 				
 	// Send the string up! Process the command
-	string response = controller->runCommand(string(msg,ret));
+	string response = controller->runCommand(smsg);
 
 	// Send back the response
 	int sendMsgSize = sendto(commandSocket, response.c_str(), response.length(), 0,(struct sockaddr*) &(clntCMDAddr), sizeof(clntCMDAddr));

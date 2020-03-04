@@ -7,14 +7,14 @@ SoapyAdrvSDR::SoapyAdrvSDR( const SoapySDR::Kwargs &args ): rx_stream(nullptr), 
 
 	try
 	{
-		udpc = new UDPClient(stoi(args.at("cmdport")),stoi(args.at("strport")),args.at("hostname"),15*1024*4,15*1024*4);
+		udpc = UDPClient::findServer(stoi(args.at("cmdport")),stoi(args.at("strport")),args.at("hostname"));
 	}
 	catch(runtime_error& re)
 	{
 		SoapySDR_logf(SOAPY_SDR_ERROR, re.what());
 		throw re;
 	}
-
+	
 	phandler = (pluto_handler_t*) malloc(sizeof(pluto_handler_t));
   	bzero(phandler, sizeof(pluto_handler_t));
 }
@@ -245,6 +245,8 @@ bool SoapyAdrvSDR::getGainMode(const int direction, const size_t channel) const
 
 void SoapyAdrvSDR::setGain( const int direction, const size_t channel, const double value )
 {
+	return;
+
 	string res;
 
         if (direction == SOAPY_SDR_RX)
@@ -276,6 +278,8 @@ void SoapyAdrvSDR::setGain( const int direction, const size_t channel, const std
 
 double SoapyAdrvSDR::getGain( const int direction, const size_t channel, const std::string &name ) const
 {
+	return 50;
+
 	string res;
 	double gain;
 
@@ -442,7 +446,7 @@ void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, con
 		// if(tx_stream)
 		//	tx_stream->set_buffer_size_by_samplerate(samplerate);
 		
-		printf("[SoapyPluto][setSampleRate] TX SamplingRate set to  %llu \n",samplerate);
+		printf("[SoapyAdrv][setSampleRate] TX SamplingRate set to  %llu \n",samplerate);
 	}
 
 	// FIXME

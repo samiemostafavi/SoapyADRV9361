@@ -28,13 +28,13 @@ static std::vector<SoapySDR::Kwargs> find_AdrvSDR(const SoapySDR::Kwargs &args)
 		strport = stoi(args.at("strport"));
 	}
 	
-	if(UDPClient::findServer(cmdport,strport,hostname))
+	if(UDPClient::findServer(cmdport,strport,hostname)!=NULL)
 	{
 		options["hostname"] = hostname;
-		options["cmdport"] = cmdport;
-		options["strport"] = strport;
+		options["cmdport"] = to_string(cmdport);
+		options["strport"] = to_string(strport);
 	}
-	else	
+	else
 	{
 		SoapySDR_logf(SOAPY_SDR_ERROR, "ADRV9361 could not be found\n");
 		return results; //failed to connect
