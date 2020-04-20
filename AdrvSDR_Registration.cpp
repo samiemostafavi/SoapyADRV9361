@@ -36,7 +36,7 @@ static std::vector<SoapySDR::Kwargs> find_AdrvSDR(const SoapySDR::Kwargs &args)
 	}
 	else
 	{
-		SoapySDR_logf(SOAPY_SDR_ERROR, "ADRV9361 could not be found\n");
+		SoapySDR_logf(SOAPY_SDR_ERROR, "ADRV9361 could not be found");
 		return results; //failed to connect
 	}
 

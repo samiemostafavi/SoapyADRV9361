@@ -1,6 +1,5 @@
 #include "UDPClient.h"
 
-
 static UDPClient* clnt = NULL;
 
 UDPClient* UDPClient::findServer(int _serverCommandPort,int _serverStreamPort, string _serverIP)
@@ -8,10 +7,11 @@ UDPClient* UDPClient::findServer(int _serverCommandPort,int _serverStreamPort, s
 	try
 	{
 		if(clnt == NULL)
-			clnt = new UDPClient(_serverCommandPort,_serverStreamPort,_serverIP,15*1024*4,15*1024*4);
+			clnt = new UDPClient(_serverCommandPort,_serverStreamPort,_serverIP,(DEFAULT_RX_BUFFER_SIZE)*4,(DEFAULT_TX_BUFFER_SIZE)*4);
 	}
 	catch(runtime_error& re)
         {
+		printf("Error find ADRV: %s \n",re.what());
 		clnt = NULL;
         }
 	return clnt;
@@ -34,9 +34,9 @@ UDPClient::UDPClient(int _serverCommandPort,int _serverStreamPort,string _server
                 throw runtime_error("Unable to create the command socket");
 
 	// Set waiting time limit
-        tv.tv_sec = 1;
+        /*tv.tv_sec = 2;
         if (setsockopt(commandSocket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
-                throw runtime_error("Unable to set waiting time for the command socket");
+                throw runtime_error("Unable to set waiting time for the command socket");*/
         
 	// Set the socket as reusable
         int true_v = 1;
@@ -86,7 +86,7 @@ void UDPClient::initProcedure()
 	else
 		throw runtime_error(string("Did not received ack from the server: ")+res);
 
-	cout << "Successfully connected to the server, ip: " << serverIP << " port: " << to_string(serverStreamPort) << endl;
+	cout << "Connected to the ADRV board (server), ip: " << serverIP << " port: " << to_string(serverStreamPort) << endl;
 }
 
 string UDPClient::sendCommand(string cmd)

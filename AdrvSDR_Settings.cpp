@@ -17,6 +17,7 @@ SoapyAdrvSDR::SoapyAdrvSDR( const SoapySDR::Kwargs &args ): rx_stream(nullptr), 
 	
 	phandler = (pluto_handler_t*) malloc(sizeof(pluto_handler_t));
   	bzero(phandler, sizeof(pluto_handler_t));
+
 }
 
 SoapyAdrvSDR::~SoapyAdrvSDR(void)
@@ -66,7 +67,7 @@ size_t SoapyAdrvSDR::getNumChannels( const int dir ) const
 
 bool SoapyAdrvSDR::getFullDuplex( const int direction, const size_t channel ) const
 {
-	return true;
+	return false;
 }
 
 /*******************************************************************
@@ -303,7 +304,7 @@ double SoapyAdrvSDR::getGain( const int direction, const size_t channel, const s
         	        SoapySDR_logf(SOAPY_SDR_ERROR, res.c_str());
                 	throw runtime_error(res);
 	        }
-	        gain = double(stoi(res) + 89);
+	        gain = double(stoi(res)+89);
         }
 
 	return gain;
@@ -327,16 +328,24 @@ void SoapyAdrvSDR::setFrequency( const int direction, const size_t channel, cons
 
         if (direction == SOAPY_SDR_RX)
         {
+		// manual CFO compensation RX
+		// double frequencyn = frequency;
+		double frequencyn = frequency;
+
                 std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 
-                string req = string("set rx frequency ") + to_string((long long)frequency);
+                string req = string("set rx frequency ") + to_string((long long)frequencyn);
                 res = udpc->sendCommand(req);
         }
         else if (direction == SOAPY_SDR_TX)
         {
-                std::lock_guard<pluto_spin_mutex> lock(tx_device_mutex);
+		// manual CFO compensation TX
+		//double frequencyn = frequency + 13000;
+		double frequencyn = frequency;
+                
+		std::lock_guard<pluto_spin_mutex> lock(tx_device_mutex);
 
-                string req = string("set tx frequency ") + to_string((long long)frequency);
+                string req = string("set tx frequency ") + to_string((long long)frequencyn);
                 res = udpc->sendCommand(req);
         }
 
@@ -393,6 +402,11 @@ SoapySDR::RangeList SoapyAdrvSDR::getFrequencyRange( const int direction, const 
  ******************************************************************/
 void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, const double samplerate )
 {
+	// manual SFO compensation
+	double samplerateN = samplerate + 30;
+	//double samplerateN = samplerate;
+	
+	
 	string res;
 	if(direction==SOAPY_SDR_RX)
 	{
@@ -430,8 +444,9 @@ void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, con
 				SoapySDR_logf(SOAPY_SDR_ERROR, "sample rate is not supported.");
 			}
 		}
+		 
 		
-		string req = string("set tx samplerate ") + to_string((long long)samplerate);
+		string req = string("set tx samplerate ") + to_string((long long)samplerateN);
                 res = udpc->sendCommand(req);
 
                 if(res.find("error") != string::npos)
@@ -440,7 +455,7 @@ void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, con
                         throw runtime_error(res);
                 }
 
-                phandler->rxSamplingFrequency = samplerate;
+                phandler->txSamplingFrequency = samplerate;
 		
 		// FIXME
 		// if(tx_stream)
@@ -497,7 +512,7 @@ void SoapyAdrvSDR::setBandwidth( const int direction, const size_t channel, cons
 
                 string req = string("set rx bandwidth ") + to_string((long long)bw);
                 res = udpc->sendCommand(req);
-		printf("[SoapyPluto][setBandwidth] RX bandwidth set to  %llu \n",(long long)bw);
+		printf("[SoapyADRV][setBandwidth] RX bandwidth set to  %llu \n",(long long)bw);
         }
         else if (direction == SOAPY_SDR_TX)
         {
@@ -505,7 +520,7 @@ void SoapyAdrvSDR::setBandwidth( const int direction, const size_t channel, cons
 
                 string req = string("set tx bandwidth ") + to_string((long long)bw);
                 res = udpc->sendCommand(req);
-		printf("[SoapyPluto][setBandwidth] TX bandwidth set to  %llu \n",(long long)bw);
+		printf("[SoapyADRV][setBandwidth] TX bandwidth set to  %llu \n",(long long)bw);
         }
 
         if(res.find("error") != string::npos)

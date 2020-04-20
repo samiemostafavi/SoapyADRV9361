@@ -42,8 +42,7 @@
 
 using namespace std;
 
-typedef enum plutosdrStreamFormat 
-{
+typedef enum plutosdrStreamFormat {
 	PLUTO_SDR_CF32,
 	PLUTO_SDR_CS16,
 	PLUTO_SDR_CS12,
@@ -90,18 +89,15 @@ class rx_streamer
         	pluto_handler_t* phandler;
 	private:
 		UDPClient* udpc;
-
 		bool has_direct_copy();
 		size_t byte_offset;
 		size_t items_in_buffer;
 		const plutosdrStreamFormat format;
 		bool direct_copy;
-		
 		void set_buffer_size(const int _buffer_size);
         	void set_mtu_size(const int mtu_size);
         	size_t mtu_size;
 		size_t buffer_size;
-		
 		bool fast_timestamp_en;
 		bool difts_piggy_en;
 };
@@ -119,7 +115,6 @@ class tx_streamer
         	pluto_handler_t* phandler;
 	private:
 		UDPClient* udpc;
-		
 		int send_buf();
 		bool has_direct_copy();
 		const plutosdrStreamFormat format;
@@ -274,6 +269,7 @@ class SoapyAdrvSDR : public SoapySDR::Device
 
 		mutable pluto_spin_mutex rx_device_mutex;
         	mutable pluto_spin_mutex tx_device_mutex;
+        	mutable pluto_spin_mutex tx_buffer_mutex;
 
 		std::unique_ptr<rx_streamer> rx_stream;
 	        std::unique_ptr<tx_streamer> tx_stream;
