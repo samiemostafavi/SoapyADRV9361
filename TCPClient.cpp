@@ -1,4 +1,4 @@
-#include "UDPClient.h"
+#include "TCPClient.h"
 
 static UDPClient* clnt = NULL;
 
@@ -53,20 +53,15 @@ UDPClient::UDPClient(int _serverCommandPort,int _serverStreamPort,string _server
 	servSTRAddr.sin_addr.s_addr = inet_addr(serverIP.c_str());      /* Server IP address */
         servSTRAddr.sin_port = htons(serverStreamPort);    /* Local port */
 
-	// Create streaming socket for receiving datagrams
-        if ((streamSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+	// Create streaming socket for receiving data
+        if ((streamSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
                 throw runtime_error("Unable to create the stream socket");
 
-	// Set the socket as reusable
-        true_v = 1;
-        if (setsockopt(streamSocket, SOL_SOCKET, SO_REUSEADDR, &true_v, sizeof (int))!=0)
-                throw runtime_error("Unable to make the streaming socket reusable");
+	int flag = 1;
+        if (setsockopt(streamSocket,IPPROTO_TCP,TCP_NODELAY,(char *) &flag,sizeof(int)) < 0)
+                throw runtime_error("Unable to set TCP_NODELAY option in stream socket");
 
-        // Connecting to the streaming socket of the server
-        if (connect(streamSocket,(struct sockaddr*) &servSTRAddr, sizeof(servSTRAddr)) < 0)
-                throw runtime_error("Stream socket connection failed, ip: " + serverIP + " port: " + to_string(serverStreamPort));
-
-	// Init procedure (send cmd init, receive cmd ack, send buffer dummy)
+	// Init procedure (send cmd init, receive cmd ack)
 	initProcedure();
 }
 
@@ -79,10 +74,12 @@ UDPClient::~UDPClient()
 
 void UDPClient::initProcedure()
 {
-	char dummy[txBufferSizeByte];
 	string res = sendCommand("init");
 	if(res == string("ack"))
-		sendStreamBuffer(dummy);
+	{
+		if(connect(streamSocket, (struct sockaddr *)&servSTRAddr, sizeof(servSTRAddr)) < 0)
+                	throw runtime_error("Stream socket connection failed, ip: " + serverIP + " port: " + to_string(serverStreamPort));
+	}
 	else
 		throw runtime_error(string("Did not received ack from the server: ")+res);
 
@@ -138,6 +135,10 @@ void UDPClient::setRXBufferSizeByte(int sizeByte)
 
 int UDPClient::sendStreamBuffer(char* pBuffer)
 {
+	int i = 1;
+	if(setsockopt(streamSocket, IPPROTO_TCP, TCP_QUICKACK, (void *)&i, sizeof(i)) < 0)
+		throw runtime_error("Unable to set TCP_QUICKACK option to stream socket");
+	
 	int ret = send(streamSocket, pBuffer, txBufferSizeByte, 0);
 	if(ret < 0)
 		return ret;
@@ -148,7 +149,13 @@ int UDPClient::sendStreamBuffer(char* pBuffer)
 
 int UDPClient::receiveStreamBuffer(char* pBuffer)
 {
-	int ret = recv(streamSocket, pBuffer, rxBufferSizeByte, 0);
+	int i = 1;
+	if(setsockopt(streamSocket, IPPROTO_TCP, TCP_QUICKACK, (void *)&i, sizeof(i)) < 0)
+		throw runtime_error("Unable to set TCP_QUICKACK option to stream socket");
+
+	int ret = recv(streamSocket, pBuffer, rxBufferSizeByte, MSG_WAITALL);
+	//if(ret != rxBufferSizeByte)
+	//	printf("%d != %d\n",ret, rxBufferSizeByte);
         if(ret < 0)
 		return ret;
 

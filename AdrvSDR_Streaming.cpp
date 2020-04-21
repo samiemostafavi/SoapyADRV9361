@@ -352,7 +352,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			//if(phandler->txDifTimestampNS != (*tx_timestamp_pointer)-(*txrx_timestamp_pointer))
 			//	printf("txdif: %lld\n",phandler->txDifTimestampNS);
 				
-			if(*tx_timestamp_pointer == 0 )
+			/*if(*tx_timestamp_pointer == 0 )
 				printf("L");
 			else if(*tx_timestamp_pointer == 1)
 				printf("E");
@@ -360,7 +360,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			{
 				phandler->txDifTimestampNS = ((*tx_timestamp_pointer)-(*txrx_timestamp_pointer))*ts_to_ns;
 				//printf("txdif: %lld\n",phandler->txDifTimestampNS);
-			}
+			}*/
 
 			// timestamp reading is done
 			// modify the items_in_buffer number so the rest of the code doesnt take the timestamp
@@ -749,7 +749,7 @@ int tx_streamer::send_buf()
 			memset(buf_ptr, 0, buf_end - buf_ptr);
 		}
 		
-		//if(txId>500)
+		//if(txId>20)
 		//	return -1;
 		
 		int ret = udpc->sendStreamBuffer(tx_buffer);

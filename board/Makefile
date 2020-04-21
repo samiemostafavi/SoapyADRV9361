@@ -25,14 +25,14 @@ Controller.o: Controller.cpp
 IIODevice.o: IIODevice.cpp
 	g++ -c IIODevice.cpp
 
-UDPServer.o: UDPServer.cpp
-	g++ -c UDPServer.cpp
+TCPServer.o: TCPServer.cpp
+	g++ -c TCPServer.cpp
 
 main.o: main.cpp
 	g++ -c main.cpp
 	
-server: main.o UDPServer.o IIODevice.o Controller.o
-	g++ Controller.o IIODevice.o UDPServer.o main.o -lad9361 -liio -lpthread -o Server
+server: main.o TCPServer.o IIODevice.o Controller.o
+	g++ Controller.o IIODevice.o TCPServer.o main.o -lad9361 -liio -lpthread -o Server
 
 run:
 	./Server

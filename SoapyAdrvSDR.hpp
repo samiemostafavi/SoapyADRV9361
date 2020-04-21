@@ -38,7 +38,7 @@
 #include <SoapySDR/Logger.hpp>
 #include <SoapySDR/Formats.hpp>
 
-#include "UDPClient.h"
+#include "TCPClient.h"
 
 using namespace std;
 

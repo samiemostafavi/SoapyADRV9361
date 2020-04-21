@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include <iostream>
+#include <netinet/tcp.h>
 
 #include "Controller.h"
 
@@ -54,6 +55,7 @@ class UDPServer
                 int commandPort;
                 int streamPort;
                 int streamSocket;
+                int streamAccSocket;
                 int commandSocket;
                 int rxBufferSizeByte;
                 int txBufferSizeByte;

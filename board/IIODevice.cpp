@@ -276,10 +276,13 @@ char* IIODevice::getTXBufferPointer()
 	{
 		// Get IIO buffer pointer, copy the data
 		char* t_dat = (char*) iio_buffer_first(txbuf,tx0_i);
+		if(t_dat == NULL)
+			throw runtime_error("TXbuf pointer error");
+
 		return t_dat;
 	}
 	else
-		throw runtime_error("Buffer refill error, txbuf does not exist");
+		throw runtime_error("Txbuf does not exist");
 }
 
 // applies streaming configuration through IIO

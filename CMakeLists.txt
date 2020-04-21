@@ -47,5 +47,5 @@ SOAPY_SDR_MODULE_UTIL(
     AdrvSDR_Registration.cpp
     AdrvSDR_Settings.cpp
     AdrvSDR_Streaming.cpp
-    UDPClient.cpp
+    TCPClient.cpp
 )

@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "IIODevice.h"
-#include "UDPServer.h"
+#include "TCPServer.h"
 #include "Controller.h"
 
 using namespace std;
@@ -41,8 +41,9 @@ int main (int argc, char **argv)
 	initTXConf.lo_hz = GHZ(2.560005);
 	initTXConf.rfport = "A";
 
-	int rxBufferSizeSample = 15*1024; // AD9361 IIO RX
-	int txBufferSizeSample = 15*1024; // AD9361 IIO TX
+	int rxBufferSizeSample = 5760+6; // AD9361 IIO RX`
+	int txBufferSizeSample = 5760+1500+6; // AD9361 IIO TX
+	//int txBufferSizeSample = 5760+6; // AD9361 IIO TX
 
 	int commandPort = 50707;
 	int streamPort = 50708;
@@ -51,7 +52,7 @@ int main (int argc, char **argv)
 	{
 	        iiodev = new IIODevice(rxBufferSizeSample,txBufferSizeSample, initRXConf, initTXConf);
 		controller = new Controller(iiodev);	
-		server = new UDPServer(commandPort,streamPort,txBufferSizeSample*4,rxBufferSizeSample*4,controller);
+		server = new UDPServer(commandPort,streamPort,txBufferSizeSample*4,rxBufferSizeSample*4,controller); // tx and rx should be different
 
 		while(true)
 			server->runCommand();

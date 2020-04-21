@@ -1,4 +1,4 @@
-#include "UDPServer.h"
+#include "TCPServer.h"
 
 UDPServer::UDPServer(int _commandPort,int _streamPort,int _rxBufferSizeByte,int _txBufferSizeByte, Controller* _controller) :
 	commandPort(_commandPort), streamPort(_streamPort), rxBufferSizeByte(_rxBufferSizeByte), txBufferSizeByte(_txBufferSizeByte), controller(_controller)
@@ -33,18 +33,22 @@ UDPServer::UDPServer(int _commandPort,int _streamPort,int _rxBufferSizeByte,int 
         servSTRAddr.sin_addr.s_addr = htonl(INADDR_ANY);   // Any incoming interface
         servSTRAddr.sin_port = htons(streamPort);           // Local port
         
-	// Create socket for receiving datagrams
-        if ((streamSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
-                throw runtime_error("Unable to create the command socket");
+	// Create socket for receiving data
+        if ((streamAccSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+                throw runtime_error("Unable to create the stream TCP socket");
 
         // Set the socket as reusable
         true_v = 1;
-        if (setsockopt(streamSocket, SOL_SOCKET, SO_REUSEADDR, &true_v, sizeof (int))!=0)
-                throw runtime_error("Unable to make the command socket reusable");
+        if (setsockopt(streamAccSocket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &true_v, sizeof (int))!=0)
+                throw runtime_error("Unable to make the stream TCP socket reusable");
 
         // Bind to the local address
-        if (bind(streamSocket, (struct sockaddr *) &servSTRAddr, sizeof(servSTRAddr)) < 0)
-                throw runtime_error("Unable to bind the socket");
+        if (bind(streamAccSocket, (struct sockaddr *) &servSTRAddr, sizeof(servSTRAddr)) < 0)
+                throw runtime_error("Unable to bind the stream TCP socket");
+        
+	// Make the socket passive
+        if (listen(streamAccSocket, 3) < 0)
+                throw runtime_error("Unable to make the stream TCP socket listen");
 
 	// Init controller server
 	controller->setServer(this);
@@ -56,8 +60,6 @@ UDPServer::UDPServer(int _commandPort,int _streamPort,int _rxBufferSizeByte,int 
 	// Start the command runner thread (waits for the client "init" command)
         //if(pthread_create(&command_thread, NULL, &UDPServer::runCommands,this) != 0)
         //        throw runtime_error("Unable to start command thread");
-
-
 }
 
 UDPServer::~UDPServer()
@@ -66,6 +68,7 @@ UDPServer::~UDPServer()
 	pthread_join(command_thread, NULL);
 	close(commandSocket);
 	close(streamSocket);
+	close(streamAccSocket);
 }
 
 void UDPServer::initClient(struct sockaddr_in cliAddr)
@@ -83,13 +86,19 @@ void UDPServer::initClient(struct sockaddr_in cliAddr)
         if (sendMsgSize<0)
         	throw runtime_error("Unable to respond to commands");
 
-        // Blocking receive of the first stream buffer (dummy)
-        char dummy[rxBufferSizeByte];
+	// Close the previous connection
+	if(streamSocket != 0)
+		close(streamSocket);
+
+	// Waiting for the incomming connection for TCP stream socket
 	unsigned int cliAddrLen = sizeof(clntSTRAddr);
-	int recvDummySize = recvfrom(streamSocket, dummy, rxBufferSizeByte, 0,(struct sockaddr *) &(clntSTRAddr), &cliAddrLen);
-        if(recvDummySize < 0)
-                throw runtime_error("Failed to receive the dummy buffer");
+	if((streamSocket = accept(streamAccSocket, (struct sockaddr *) &(clntSTRAddr), &cliAddrLen))<0)
+                throw runtime_error("Failed to receive the incomming connection request");
 	
+	int flag = 1;
+	if (setsockopt(streamSocket,IPPROTO_TCP,TCP_NODELAY,(char*) &flag, sizeof(int)) < 0)
+		throw runtime_error("Unable to set TCP_NODELAY in stream socket");
+
 	// Printout the result
 	char ip[INET_ADDRSTRLEN];
 	uint16_t cmdport;
@@ -160,6 +169,7 @@ void* UDPServer::runCommands(void* server)
 		
 	close(p->commandSocket);
 	close(p->streamSocket);
+	close(p->streamAccSocket);
 	
 	printf("Network UDP command serving thread is stopped\n");
 }
@@ -217,9 +227,13 @@ void UDPServer::runCommand()
 
 int UDPServer::sendStreamBuffer(char* pBuffer)
 {
-	int ret = sendto(streamSocket, pBuffer, txBufferSizeByte, 0, (struct sockaddr*) &(clntSTRAddr), sizeof(clntSTRAddr));
+	int i = 1;
+	if(setsockopt(streamSocket,IPPROTO_TCP, TCP_QUICKACK, (void*) &i, sizeof(i)) < 0)
+		throw runtime_error("Unable to set TCP_QUICKACK option to stream socket");
+
+	int ret = send(streamSocket, pBuffer, txBufferSizeByte, 0);
 	if(ret < 0)
-        	throw runtime_error("Sending the buffer failed");
+        	throw runtime_error("Sending the buffer failed: "+string(strerror(errno)));
 
 	send_count += ret;
 	return ret;
@@ -227,9 +241,13 @@ int UDPServer::sendStreamBuffer(char* pBuffer)
 
 int UDPServer::receiveStreamBuffer(char* pBuffer)
 {
-	int ret = recv(streamSocket, pBuffer, rxBufferSizeByte, 0);
+	int i = 1;
+	if(setsockopt(streamSocket,IPPROTO_TCP, TCP_QUICKACK, (void*) &i, sizeof(i)) < 0)
+		throw runtime_error("Unable to set TCP_QUICKACK option to stream socket");
+
+	int ret = recv(streamSocket, pBuffer, rxBufferSizeByte, MSG_WAITALL);
         if(ret < 0)
-        	throw runtime_error("Receiving the buffer faild");
+        	throw runtime_error("Receiving the buffer faild: "+string(strerror(errno)));
 
 	recv_count += ret;
 	return ret;
