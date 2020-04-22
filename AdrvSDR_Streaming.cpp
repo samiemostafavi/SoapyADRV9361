@@ -751,10 +751,12 @@ int tx_streamer::send_buf()
 		
 		//if(txId>20)
 		//	return -1;
+		cout << txId << endl;
 		
 		int ret = udpc->sendStreamBuffer(tx_buffer);
 		txId++;
 		items_in_buf = 0;
+
 
 		if (ret < 0)
 			return ret;
