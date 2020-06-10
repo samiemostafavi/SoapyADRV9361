@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include <iostream>
+#include <sys/time.h>
 
 #include "Controller.h"
 
@@ -36,6 +37,7 @@ class UDPServer
 		void runCommand();
                 int sendStreamBuffer(char* pBuffer);
                 int receiveStreamBuffer(char* pBuffer);
+                int receiveStreamDiscard();
                 void setTXBufferSizeByte(int size);
                 void setRXBufferSizeByte(int size);
                 int getTXBufferSizeByte() { return txBufferSizeByte; }
@@ -59,6 +61,8 @@ class UDPServer
                 int txBufferSizeByte;
                 int send_count;
                 int recv_count;
+                int send_fr_count;
+                int recv_fr_count;
                 pthread_t command_thread;
                 bool command_thread_active;
 		bool clientInitiated;

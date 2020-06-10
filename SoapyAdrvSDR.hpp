@@ -32,7 +32,7 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <signal.h>
-
+#include <sys/time.h>
 
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Logger.hpp>

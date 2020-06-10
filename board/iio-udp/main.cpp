@@ -26,6 +26,25 @@ int main (int argc, char **argv)
 	// Listen to ctrl+c and assert
 	signal(SIGINT, shutdown);
 
+	// Get the CPU affinity of the current thread and set it to CPU 1
+	pthread_t mainThread = pthread_self();
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(1,&cpuset);
+	if(pthread_setaffinity_np(mainThread,sizeof(cpu_set_t), &cpuset) < 0)
+		cout << "Set main thread affinity error" << endl;
+
+	if(pthread_getaffinity_np(mainThread,sizeof(cpu_set_t), &cpuset) < 0)
+		cout << "Get main thread affinity error" << endl;
+
+	string cpuSetStr = "";
+	if(CPU_ISSET(0,&cpuset))
+		cpuSetStr += "0 ";
+	if(CPU_ISSET(1,&cpuset))
+		cpuSetStr += "1";	
+
+	cout << "PID of the main thread: " << ::getpid() << ", CPU: " << cpuSetStr << endl;
+
 	// Start IIODevice
 	struct stream_cfg initRXConf;
 
@@ -41,8 +60,13 @@ int main (int argc, char **argv)
 	initTXConf.lo_hz = GHZ(2.560005);
 	initTXConf.rfport = "A";
 
-	int rxBufferSizeSample = 15*1024; // AD9361 IIO RX
-	int txBufferSizeSample = 15*1024; // AD9361 IIO TX
+	// srsLTE 5.76 MHz
+	int rxBufferSizeSample = 5760+6; // AD9361 IIO RX
+	int txBufferSizeSample = 5760+6+1500; // AD9361 IIO TX
+
+	// OAI 7.680 MHz	
+	//int rxBufferSizeSample = 7680+6; // AD9361 IIO RX
+	//int txBufferSizeSample = 7680+6+1500; // AD9361 IIO TX
 
 	int commandPort = 50707;
 	int streamPort = 50708;

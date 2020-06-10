@@ -246,12 +246,13 @@ bool SoapyAdrvSDR::getGainMode(const int direction, const size_t channel) const
 
 void SoapyAdrvSDR::setGain( const int direction, const size_t channel, const double value )
 {
-	return;
+	//return;
 
 	string res;
 
         if (direction == SOAPY_SDR_RX)
         {
+
                 std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 
                 string req = string("set rx gain ") + to_string(value);
@@ -279,7 +280,7 @@ void SoapyAdrvSDR::setGain( const int direction, const size_t channel, const std
 
 double SoapyAdrvSDR::getGain( const int direction, const size_t channel, const std::string &name ) const
 {
-	return 50;
+	//return 50;
 
 	string res;
 	double gain;
@@ -403,7 +404,7 @@ SoapySDR::RangeList SoapyAdrvSDR::getFrequencyRange( const int direction, const 
 void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, const double samplerate )
 {
 	// manual SFO compensation
-	double samplerateN = samplerate + 30;
+	double samplerateN = samplerate + 34;
 	//double samplerateN = samplerate;
 	
 	

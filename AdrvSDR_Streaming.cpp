@@ -18,7 +18,6 @@ char tx_buffer[DEFAULT_TX_BUFFER_SIZE*4];
 
 uint64_t reg_timeNs = 0;
 
-
 rx_streamer* rxstr = NULL;
 tx_streamer* txstr = NULL;
 
@@ -242,13 +241,13 @@ int64_t tmp = 0;
 int SoapyAdrvSDR::readStreamStatus(SoapySDR::Stream *stream,size_t &chanMask,int &flags,long long &timeNs,const long timeoutUs)
 {
 	//return SOAPY_SDR_NOT_SUPPORTED;
-	//printf("[SoapyPluto] Monitoring %s for underflows/overflows\n",iio_device_get_name(dev));
-	//printf("[SoapyPluto][rx_streamer] RX dif timestamp: %lld, TX dif timestamp: %lld \n",phandler->rxTimestampDif,phandler->txDifTimestampNS);
+	//printf("[SoapyAdrv] Monitoring %s for underflows/overflows\n",iio_device_get_name(dev));
+	//printf("[SoapyAdrv][rx_streamer] RX dif timestamp: %lld, TX dif timestamp: %lld \n",phandler->rxTimestampDif,phandler->txDifTimestampNS);
 	
 	/*sleep(1);
 	if(phandler->txDifTimestampNS != tmp)
 	{
-		printf("[SoapyPluto][rx_streamer] TX dif timestamp: %lld \n",phandler->txDifTimestampNS);
+		printf("[SoapyAdrv][rx_streamer] TX dif timestamp: %lld \n",phandler->txDifTimestampNS);
 		tmp = phandler->txDifTimestampNS;
 	}*/
 
@@ -316,7 +315,8 @@ void rx_streamer::set_mtu_size(const int mtu_size)
 
 size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &flags, long long &timeNs, const long timeoutUs)
 {
-	double ts_to_ns = (double)250000000/(double)phandler->rxSamplingFrequency;
+	//double ts_to_ns = (double)250000000/(double)phandler->rxSamplingFrequency;
+	double ts_to_ns = (double)10;
 	//if(isnan(ts_to_ns))
 	//	ts_to_ns = ((double)250000000.0)/((double)(5760000));
 	
@@ -352,15 +352,15 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			//if(phandler->txDifTimestampNS != (*tx_timestamp_pointer)-(*txrx_timestamp_pointer))
 			//	printf("txdif: %lld\n",phandler->txDifTimestampNS);
 				
-			if(*tx_timestamp_pointer == 0 )
+			/*if(*tx_timestamp_pointer == 0 )
 				printf("L");
 			else if(*tx_timestamp_pointer == 1)
 				printf("E");
 			else
 			{
 				phandler->txDifTimestampNS = ((*tx_timestamp_pointer)-(*txrx_timestamp_pointer))*ts_to_ns;
-				//printf("txdif: %lld\n",phandler->txDifTimestampNS);
-			}
+				printf("txdif: %lld\n",phandler->txDifTimestampNS);
+			}*/
 
 			// timestamp reading is done
 			// modify the items_in_buffer number so the rest of the code doesnt take the timestamp
@@ -374,7 +374,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 
 	size_t items = std::min(items_in_buffer,numElems);
 			
-	if(direct_copy)
+	if(true)
 	{
 		// optimize for single RX, 2 channel (I/Q), same endianess direct copy
 		// note that RX is 12 bits LSB aligned, i.e. fullscale 2048
@@ -383,7 +383,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 
 		if (format == PLUTO_SDR_CS16)
 		{
-			::memcpy(buffs[0], src_ptr, 2 * sizeof(int16_t) * items);
+			::memcpy(buffs[0], src_ptr, 2 * sizeof(uint16_t) * items);
 		}
 		else if (format == PLUTO_SDR_CF32) 
 		{
@@ -439,7 +439,9 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
         	reg_timeNs = phandler->rxTimestampNS;
 	}
 
-        // interpolate the timestamp for each data chunk read
+	
+        
+	// interpolate the timestamp for each data chunk read
         int sampling_freq = phandler->rxSamplingFrequency;
         // the rate of the stream is 4 bytes ((i,q) == (16 bits, 16 bits)) every 1e9/SAMPLING_FREQUENCY nanoseconds.
         double evr = (double)1e9/(double)sampling_freq;
@@ -452,6 +454,8 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
         // printf("from SoapyAdrv reg_timeNs: %llu, byte_offset: %lu, bytes_remain: %lu, sampling_freq: %d, 4 bytes every: %lf ns\n",reg_timeNs,byte_offset,bytes_remain, sampling_freq,evr);
         timeNs = reg_timeNs - timeNs_sub;
 	
+	//timeNs = reg_timeNs; 
+
 	//printf("New RX timestamp: %llu\n",timeNs);
 
 	items_in_buffer -= items;
@@ -596,11 +600,16 @@ int tx_streamer::stop(const int flags,const long long timeNs)
 }
 
 int txId=0;
+unsigned long prevTime = 0;
 
 int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flags,const long long timeNs,const long timeoutUs )
 {
-	double ts_to_ns = (double)250000000/(double)phandler->txSamplingFrequency;
+	if(numElems == 0)
+		return 0;
 
+	//double ts_to_ns = (double)250000000/(double)phandler->txSamplingFrequency;
+	double ts_to_ns = (double)10;
+	
 	// Keep 2 samples free at the end of the buffer for the timestamp if it is enabled
 	size_t buf_size_revised;
 	if(fast_timestamp_en)
@@ -611,7 +620,12 @@ int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flag
 	size_t items = std::min(buf_size_revised - items_in_buf, numElems);
     
 	//if(numElems > 5760)
-	//SoapySDR_logf(SOAPY_SDR_INFO, "tx_streamer_send timeNs: %lld, buf_size: %d, items: %d, numElems: %d, id:%d",timeNs, (int)buf_size_revised, (int)items, numElems,txId);
+	
+	//struct timeval tv;
+	//gettimeofday(&tv,NULL);
+	//unsigned long time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+	//SoapySDR_logf(SOAPY_SDR_INFO, "tx_streamer_send timeNs: %lld, buf_size: %d, items: %d, numElems: %d, id:%d, time:%lu , time_dif: %lu",timeNs, (int)buf_size_revised, (int)items, numElems,txId,time_in_micros,time_in_micros-prevTime);
+	//prevTime = time_in_micros;
 
 	uint8_t *dst_ptr;
 	int buf_step = 4;
@@ -641,6 +655,8 @@ int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flag
 			((int16_t*)dst_ptr)[0] = src_i;
 			((int16_t*)dst_ptr)[1] = src_q;
 			
+			//printf("Items: %d, j: %d, Input samps: %f, %f - Output samps: %d, %d\n",items, j,samples_cf32[j*2],samples_cf32[j*2+1],src_i,src_q);
+
 			dst_ptr += buf_step;
 		}
 		

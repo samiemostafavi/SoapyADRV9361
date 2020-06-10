@@ -17,8 +17,13 @@
 
 using namespace std;
 
+// srsLTE
 #define DEFAULT_RX_BUFFER_SIZE (5760+6)
 #define DEFAULT_TX_BUFFER_SIZE (5760+1500+6)
+
+// OAI 
+//#define DEFAULT_RX_BUFFER_SIZE (7680+6)
+//#define DEFAULT_TX_BUFFER_SIZE (7680+1500+6)
 
 #define MESSAGE_LENGTH_CHAR 1024
 
