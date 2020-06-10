@@ -1,4 +1,4 @@
-# Soapy SDR module for Analog Devices ADRV9361 SDR
+# SoapySDR driver for Analog Devices ADRV9361 SDR
 
 ## Installation instructions
 
@@ -12,7 +12,7 @@ make
 sudo make install
 ```
 
-Run these commands in the case of large packet drops or high latency.
+Run these commands in the case of large packet drops or high latency:
 
 ```
 sudo sysctl -w net.core.rmem_default=12582912;
@@ -33,4 +33,8 @@ sudo sysctl -w net.ipv4.tcp_fastopen=1;
 ## Dependencies
 
 - [SoapySDR](https://github.com/pothosware/SoapySDR)
+
+## Licensing Information
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
