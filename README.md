@@ -1,6 +1,6 @@
 # SoapySDR driver for Analog Devices ADRV9361 SDR
 
-SoapyADRV9361 is a UDP based driver which is faster and lighter than LibIIO network context. Compared to LibIIO, SoapyADRV can use small buffers which is necessary for lateny-critical applications such as software LTE. Moreover, there is no TCP timing and processing overhead since SoapuADRV is based on UDP. UDP is the best option when the link between the SDR board and the processing unit is Ethernet which is reliable.
+SoapyADRV9361 is a UDP based driver for Analog Devices [ADRV9361](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adrv9361-z7035.html#eb-overview) SDR which is faster and lighter than [LibIIO](https://wiki.analog.com/resources/tools-software/linux-software/libiio) network context. Compared to LibIIO, SoapyADRV9361 can use small buffers which is necessary for lateny-critical applications such as software LTE. Moreover, there is no TCP handshake overhead since SoapyADRV is based on UDP. UDP streaming is the best option when the link between the SDR board and the processing unit is Ethernet which is reliable.
 
 <img src="doc/TestBedDetail.jpg?raw=true" alt="alt text" style="zoom: 67%;" />
 
@@ -28,7 +28,8 @@ sudo sysctl -w net.core.rmem_max=12582912;
 
 ### ADRV Board
 
-Copy "board" folder to the SD card and then run make
+Copy "board" folder to the SD card and then run make.
+
 NOTE: In the current version make should be done after every boot-up.
 
 
