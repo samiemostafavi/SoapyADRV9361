@@ -6,7 +6,10 @@ SoapyADRV9361 is a UDP based driver for Analog Devices [ADRV9361](https://www.an
 
 ## Installation instructions
 
-### Processing Host
+### On the Processing Host
+
+Make sure that [SoapySDR](https://github.com/pothosware/SoapySDR) is installed.
+
 ```
 git clone git@github.com:samiemostafavi/SoapyADRV9361.git
 cd SoapyADRV9361
@@ -26,11 +29,18 @@ sudo sysctl -w net.core.wmem_max=12582912;
 sudo sysctl -w net.core.rmem_max=12582912;
 ```
 
-### ADRV Board
 
-Copy "board" folder to the SD card and then run make.
 
-NOTE: In the current version make should be done after every boot-up.
+### On the ADRV Board
+
+1. Copy "board/iio-udp" folder into the SD card "rootfs/home/analog/iio-udp"
+
+2. Insert the line below into "crontab -e":
+   `@reboot make -C ~/iio-udp/make_log.tx 2>&1`
+3. Reboot the board
+
+All the logs are stored in "analog/iio-udp/server_log.txt".
+
 
 
 ## Dependencies
