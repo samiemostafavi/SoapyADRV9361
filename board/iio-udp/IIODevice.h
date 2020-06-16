@@ -47,7 +47,7 @@ struct stream_cfg
 class IIODevice
 {
 	public:
-		IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample, struct stream_cfg _RXConfig, struct stream_cfg _TXConfig);
+		IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample,struct stream_cfg _RXConfig, struct stream_cfg _TXConfig);
 		IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample);
 		~IIODevice();
 		void enableChannels(enum iodev d);

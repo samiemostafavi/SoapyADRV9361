@@ -21,6 +21,8 @@ using namespace std;
 #define DEFAULT_RX_BUFFER_SIZE (5760+6)
 #define DEFAULT_TX_BUFFER_SIZE (5760+1500+6)
 
+#define DUMMYBUF_SIZE_BYTE 4096*4
+
 // OAI 
 //#define DEFAULT_RX_BUFFER_SIZE (7680+6)
 //#define DEFAULT_TX_BUFFER_SIZE (7680+1500+6)
@@ -32,7 +34,7 @@ class UDPClient
 	public:
 		UDPClient(int _serverCommandPort,int _serverStreamPort, string _serverIP,int _rxBufferSizeByte,int _txBufferSizeByte);
 		~UDPClient();
-		static UDPClient* findServer(int _serverCommandPort,int _serverStreamPort, string _serverIP);
+		static UDPClient* findServer(int _serverCommandPort,int _serverStreamPort, string _serverIP,int _rxBufferSizeByte,int _txBufferSizeByte);
 		string sendCommand(string cmd);
 		int sendStreamBuffer(char* pBuffer);
 		int receiveStreamBuffer(char* pBuffer);

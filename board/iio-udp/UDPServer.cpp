@@ -1,7 +1,7 @@
 #include "UDPServer.h"
 
-UDPServer::UDPServer(int _commandPort,int _streamPort,int _rxBufferSizeByte,int _txBufferSizeByte, Controller* _controller) :
-	commandPort(_commandPort), streamPort(_streamPort), rxBufferSizeByte(_rxBufferSizeByte), txBufferSizeByte(_txBufferSizeByte), controller(_controller)
+UDPServer::UDPServer(int _commandPort,int _streamPort, Controller* _controller) :
+	commandPort(_commandPort), streamPort(_streamPort), rxBufferSizeByte(DUMMYBUF_SIZE_BYTE), txBufferSizeByte(DUMMYBUF_SIZE_BYTE), controller(_controller)
 {
 	send_count = 0;
 	recv_count = 0;
@@ -75,6 +75,10 @@ void UDPServer::initClient(struct sockaddr_in cliAddr)
 	// stop controller
 	controller->stop(RX);
 	controller->stop(TX);
+
+	// Reset buffer size
+	rxBufferSizeByte = DUMMYBUF_SIZE_BYTE;
+	txBufferSizeByte = DUMMYBUF_SIZE_BYTE;
 
 	// set the new address
 	clntCMDAddr = cliAddr;
@@ -236,20 +240,14 @@ int UDPServer::receiveStreamBuffer(char* pBuffer)
         if((ret < 0) || (ret != rxBufferSizeByte))
         	throw runtime_error("Receiving the buffer faild");
 	
-	/*struct timeval tv;
-	gettimeofday(&tv,NULL);
-	unsigned long time_in_micros = 1000000*tv.tv_sec + tv.tv_usec;
-	printf("timeDif UDPServer: %lu\n",time_in_micros-timePrev);
-	timePrev = time_in_micros;*/
-
 	recv_count += ret;
 	recv_fr_count ++;
 	return ret;
 }
 
+// Debug function
 uint16_t oldid = 0;
 uint16_t accdrops = 0;
-
 char tpBuffer[(5760+1500+6)*4];
 int UDPServer::receiveStreamDiscard()
 {
@@ -266,12 +264,6 @@ int UDPServer::receiveStreamDiscard()
         }
         oldid = *txidp;
 	
-	/*struct timeval tv;
-	gettimeofday(&tv,NULL);
-	unsigned long time_in_micros = 1000000*tv.tv_sec + tv.tv_usec;
-	printf("timeDif UDPServer: %lu\n",time_in_micros-timePrev);
-	timePrev = time_in_micros;*/
-
         recv_count += ret;
         recv_fr_count ++;
         return ret;

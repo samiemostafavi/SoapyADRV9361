@@ -48,34 +48,26 @@ int main (int argc, char **argv)
 	// Start IIODevice
 	struct stream_cfg initRXConf;
 
-	initRXConf.bw_hz = MHZ(4.695); 
+	initRXConf.bw_hz = MHZ(5); 
 	initRXConf.fs_hz = MHZ(5.76);
 	initRXConf.lo_hz = GHZ(2.680005);
 	initRXConf.rfport = "A_BALANCED";
 
 	struct stream_cfg initTXConf;
 	
-	initTXConf.bw_hz = MHZ(4.373);
+	initTXConf.bw_hz = MHZ(5);
 	initTXConf.fs_hz = MHZ(5.76);
 	initTXConf.lo_hz = GHZ(2.560005);
 	initTXConf.rfport = "A";
-
-	// srsLTE 5.76 MHz
-	int rxBufferSizeSample = 5760+6; // AD9361 IIO RX
-	int txBufferSizeSample = 5760+6+1500; // AD9361 IIO TX
-
-	// OAI 7.680 MHz	
-	//int rxBufferSizeSample = 7680+6; // AD9361 IIO RX
-	//int txBufferSizeSample = 7680+6+1500; // AD9361 IIO TX
 
 	int commandPort = 50707;
 	int streamPort = 50708;
 
 	try
 	{
-	        iiodev = new IIODevice(rxBufferSizeSample,txBufferSizeSample, initRXConf, initTXConf);
-		controller = new Controller(iiodev);	
-		server = new UDPServer(commandPort,streamPort,txBufferSizeSample*4,rxBufferSizeSample*4,controller);
+	        iiodev = new IIODevice(DUMMYBUF_SIZE_BYTE/4,DUMMYBUF_SIZE_BYTE/4, initRXConf, initTXConf);
+		controller = new Controller(iiodev);
+		server = new UDPServer(commandPort,streamPort,controller);
 
 		while(true)
 			server->runCommand();

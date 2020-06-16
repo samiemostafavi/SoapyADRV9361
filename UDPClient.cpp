@@ -2,12 +2,12 @@
 
 static UDPClient* clnt = NULL;
 
-UDPClient* UDPClient::findServer(int _serverCommandPort,int _serverStreamPort, string _serverIP)
+UDPClient* UDPClient::findServer(int _serverCommandPort,int _serverStreamPort, string _serverIP, int _rxBufferSizeByte, int _txBufferSizeByte)
 {
 	try
 	{
 		if(clnt == NULL)
-			clnt = new UDPClient(_serverCommandPort,_serverStreamPort,_serverIP,(DEFAULT_RX_BUFFER_SIZE)*4,(DEFAULT_TX_BUFFER_SIZE)*4);
+			clnt = new UDPClient(_serverCommandPort,_serverStreamPort,_serverIP,_rxBufferSizeByte,_txBufferSizeByte);
 	}
 	catch(runtime_error& re)
         {
@@ -79,12 +79,16 @@ UDPClient::~UDPClient()
 
 void UDPClient::initProcedure()
 {
-	char dummy[txBufferSizeByte];
+	char dummy[DUMMYBUF_SIZE_BYTE];
 	string res = sendCommand("init");
 	if(res == string("ack"))
-		sendStreamBuffer(dummy);
+		send(streamSocket, dummy, DUMMYBUF_SIZE_BYTE, 0);
 	else
-		throw runtime_error(string("Did not received ack from the server: ")+res);
+		throw runtime_error(string("Did not receive ack from the server: ")+res);
+
+	cout << "Configuring ADRV rx buffer size: " << to_string(rxBufferSizeByte/4) << " tx buffer size: " << to_string(txBufferSizeByte/4) << endl;
+	setRXBufferSizeByte(rxBufferSizeByte);
+	setTXBufferSizeByte(txBufferSizeByte);
 
 	cout << "Connected to the ADRV board (server), ip: " << serverIP << " port: " << to_string(serverStreamPort) << endl;
 }

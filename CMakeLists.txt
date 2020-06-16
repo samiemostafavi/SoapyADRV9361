@@ -49,3 +49,6 @@ SOAPY_SDR_MODULE_UTIL(
     AdrvSDR_Streaming.cpp
     UDPClient.cpp
 )
+
+#ADD_SUBDIRECTORY(tests)
+

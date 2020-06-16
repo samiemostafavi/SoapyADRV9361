@@ -7,7 +7,7 @@ SoapyAdrvSDR::SoapyAdrvSDR( const SoapySDR::Kwargs &args ): rx_stream(nullptr), 
 
 	try
 	{
-		udpc = UDPClient::findServer(stoi(args.at("cmdport")),stoi(args.at("strport")),args.at("hostname"));
+		udpc = UDPClient::findServer(stoi(args.at("cmdport")),stoi(args.at("strport")),args.at("hostname"),stoi(args.at("rxbuffersize"))*4,stoi(args.at("txbuffersize"))*4);
 	}
 	catch(runtime_error& re)
 	{

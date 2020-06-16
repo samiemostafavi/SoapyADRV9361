@@ -24,14 +24,14 @@
 using namespace std;
 
 #define MESSAGE_LENGTH_CHAR 1024
-
+#define DUMMYBUF_SIZE_BYTE 4096*4
 
 class Controller;
 
 class UDPServer
 {
         public:
-                UDPServer(int _commandPort,int _streamPort,int _rxBufferSizeByte,int _txBufferSizeByte,Controller* _controller);
+                UDPServer(int _commandPort,int _streamPort,Controller* _controller);
                 ~UDPServer();
                 static void* runCommands(void* server);
 		void runCommand();

@@ -1,17 +1,6 @@
-# libiio - Library for interfacing industrial I/O (IIO) devices
-#
-# Copyright (C) 2014 Analog Devices, Inc.
-# Author: Paul Cercueil <paul.cercueil@analog.com>
-#
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
-#
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# Place the line below in "crontab -e" :
+# @reboot make -C ~/iio-udp/make_log.tx 2>&1
+
 
 CFLAGS = -Wall
 
@@ -35,10 +24,10 @@ server: main.o UDPServer.o IIODevice.o Controller.o
 	g++ Controller.o IIODevice.o UDPServer.o main.o -lad9361 -liio -lpthread -o Server
 
 run:
-	./Server
+	./Server > server_log.txt 2>&1
 
 clean:
 	rm -f *.o
 
 install:
-	./install.bash
+	./install.bash > install_log.txt 2>&1

@@ -4,9 +4,15 @@
 
 #include "UDPClient.h"
 
+/*#include <SoapySDR/Device.h>
+#include <SoapySDR/Formats.h>
+#include <SoapySDR/Time.h>
+#include <SoapySDR/Logger.h>
+#include <Types.h>*/
+
 using namespace std;
 
-#define WRITE_FILE 1
+#define WRITE_FILE 0
 
 void writeFileRx(string file_name,uint64_t* rxtsp,int size)
 {
