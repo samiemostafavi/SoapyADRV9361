@@ -470,6 +470,8 @@ void IIODevice::enableChannels(enum iodev d)
 			iio_channel_enable(rx0_i);
         		iio_channel_enable(rx0_q);
 		        
+			cout << "rxBufferSizeSample (IIODevice): " << rxBufferSizeSample << endl;
+
 			if(rxbuf == NULL)
 				rxbuf = iio_device_create_buffer(rx, rxBufferSizeSample, false);
 			if(rxbuf == NULL)
@@ -499,6 +501,8 @@ void IIODevice::enableChannels(enum iodev d)
 
 			iio_channel_enable(tx0_i);
         		iio_channel_enable(tx0_q);
+			
+			cout << "txBufferSizeSample (IIODevice): " << txBufferSizeSample << endl;
 
 			if(txbuf == NULL)
 		        	txbuf = iio_device_create_buffer(tx, txBufferSizeSample, false);

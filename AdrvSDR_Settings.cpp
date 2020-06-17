@@ -404,8 +404,8 @@ SoapySDR::RangeList SoapyAdrvSDR::getFrequencyRange( const int direction, const 
 void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, const double samplerate )
 {
 	// manual SFO compensation
-	double samplerateN = samplerate + 34;
-	//double samplerateN = samplerate;
+	//double samplerateN = samplerate + 34;
+	double samplerateN = samplerate;
 	
 	
 	string res;

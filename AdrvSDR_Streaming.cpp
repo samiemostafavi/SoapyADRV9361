@@ -337,7 +337,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			
 			//printf("rx ts_to_ns: %LG\n",ts_to_ns());
 			//printf("Got a timestamp in: %lld, received items: %d\n",phandler->rxTimestampDif,ret/4);
-			//printf("Got a timestamp: %llu, originally: %llu, received items: %d\n",phandler->rxTimestampNS,(*rx_timestamp_pointer),ret/4);
+			//printf("Got a timestamp (NS): %llu, original: %llu, received items: %d\n",phandler->rxTimestampNS,(*rx_timestamp_pointer),ret/4);
 		
         	        uint64_t* tx_timestamp_pointer = (uint64_t*)(rx_buffer+(buffer_size*4)-16);
 				
@@ -352,8 +352,8 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 				printf("E");
 			else
 			{
-				phandler->txDifTimestampNS = ((*tx_timestamp_pointer)-(*txrx_timestamp_pointer))*ts_to_ns;
-				printf("txdif: %lld\n",phandler->txDifTimestampNS);
+				//phandler->txDifTimestampNS = ((*tx_timestamp_pointer)-(*txrx_timestamp_pointer))*ts_to_ns;
+				//printf("txdif: %lld\n",phandler->txDifTimestampNS);
 			}*/
 
 			// timestamp reading is done
@@ -676,16 +676,11 @@ int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flag
                 throw std::runtime_error("Unknown TX format");
 	}
 	
-	// Save the timestamp if we are at the begining of the buffer, we need it in the end
-	//if(items_in_buf == 0)
-	//	phandler->txTimestampNS = timeNs;
-	
 	phandler->txTimestampNS = timeNs;
-
-	//SoapySDR_logf(SOAPY_SDR_INFO, "send_buf items_in_buf: %d, buf_size: %d, timeNs: %s",(int)items_in_buf,(int)buf_size_revised,samp);
-	//SoapySDR_logf(SOAPY_SDR_INFO, "send_buf items_in_buf: %d, buf_size: %d\n",(int)items_in_buf,(int)buf_size_revised);
-	
 	items_in_buf += items;
+
+	//SoapySDR_logf(SOAPY_SDR_INFO, "send_buf items_in_buf: %d, buf_size_revised: %d, timeNs: %llu",(int)items_in_buf,(int)buf_size_revised,phandler->txTimestampNS);
+	//SoapySDR_logf(SOAPY_SDR_INFO, "send_buf items_in_buf: %d, buf_size: %d\n",(int)items_in_buf,(int)buf_size_revised);
 
 	//Write metadata
 	if(fast_timestamp_en)
@@ -693,7 +688,7 @@ int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flag
 		// Write TX force timestamp
 		uint64_t* tx_timestamp_pointer = (uint64_t*)(tx_buffer+(buffer_size*4)-8);
                 //*tx_timestamp_pointer = (phandler->txTimestampNS)/ts_to_ns;
-       	        *tx_timestamp_pointer = ((double)timeNs)/((double)ts_to_ns);
+		*tx_timestamp_pointer = ((double)timeNs)/((double)ts_to_ns);
 		
 		//printf("tx ts_to_ns: %f, txSamplingFrequency: %d, timeNs: %llu, timestamp double: %f\n",ts_to_ns,phandler->txSamplingFrequency, timeNs,tmp);
 		//printf("TX timestamp written: %llu\n",*tx_timestamp_pointer);
@@ -739,7 +734,7 @@ int tx_streamer::send_buf()
 		{
 			int buf_step = 4;
 			uint8_t *buf_ptr = (uint8_t *)tx_buffer + (items_in_buf-6) * buf_step;
-			uint8_t *buf_end = (uint8_t *)tx_buffer+((buffer_size-6)*4);
+			uint8_t *buf_end = (uint8_t *)tx_buffer + ((buffer_size-6)*4);
 
 			memset(buf_ptr, 0, buf_end - buf_ptr);
 		}

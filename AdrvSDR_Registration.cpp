@@ -34,7 +34,7 @@ static std::vector<SoapySDR::Kwargs> find_AdrvSDR(const SoapySDR::Kwargs &args)
 		txbuffersize = stoi(args.at("txbuffersize"));
 	}
 	
-	if(UDPClient::findServer(cmdport,strport,hostname,rxbuffersize,txbuffersize)!=NULL)
+	if(UDPClient::findServer(cmdport,strport,hostname,rxbuffersize*4,txbuffersize*4)!=NULL)
 	{
 		options["hostname"] = hostname;
 		options["cmdport"] = to_string(cmdport);

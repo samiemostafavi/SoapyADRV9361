@@ -128,9 +128,9 @@ string Controller::runCommand(string cmdStr)
 
 				// set UDP server buffer size
 				if(d==RX)
-					server->setRXBufferSizeByte(val);
-				if(d==TX)
 					server->setTXBufferSizeByte(val);
+				if(d==TX)
+					server->setRXBufferSizeByte(val);
 
 				response = "done";
 			}
