@@ -17,16 +17,7 @@
 
 using namespace std;
 
-// srsLTE
-#define DEFAULT_RX_BUFFER_SIZE (5760+6)
-#define DEFAULT_TX_BUFFER_SIZE (5760+1500+6)
-
 #define DUMMYBUF_SIZE_BYTE 4096*4
-
-// OAI 
-//#define DEFAULT_RX_BUFFER_SIZE (7680+6)
-//#define DEFAULT_TX_BUFFER_SIZE (7680+1500+6)
-
 #define MESSAGE_LENGTH_CHAR 1024
 
 class UDPClient

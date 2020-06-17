@@ -40,6 +40,8 @@
 
 #include "UDPClient.h"
 
+#define MAXBUF_SIZE_BYTE 65535
+
 using namespace std;
 
 typedef enum plutosdrStreamFormat {
@@ -85,21 +87,18 @@ class rx_streamer
 		int start(const int flags,const long long timeNs,const size_t numElems);
 		int stop(const int flags,const long long timeNs=100000);
 		void set_buffer_size_by_samplerate(const size_t _samplerate);
-	        size_t get_mtu_size();
+	        size_t get_mtu_size() { return mtu_size; }
         	pluto_handler_t* phandler;
 	private:
 		UDPClient* udpc;
-		bool has_direct_copy();
 		size_t byte_offset;
 		size_t items_in_buffer;
 		const plutosdrStreamFormat format;
 		bool direct_copy;
 		void set_buffer_size(const int _buffer_size);
-        	void set_mtu_size(const int mtu_size);
         	size_t mtu_size;
 		size_t buffer_size;
 		bool fast_timestamp_en;
-		bool difts_piggy_en;
 };
 
 class tx_streamer 
@@ -112,17 +111,17 @@ class tx_streamer
 		int flush();
 		int start(const int flags,const long long timeNs,const size_t numElems);
 		int stop(const int flags,const long long timeNs=100000);
+	        size_t get_mtu_size() { return mtu_size; }
         	pluto_handler_t* phandler;
 	private:
 		UDPClient* udpc;
 		int send_buf();
-		bool has_direct_copy();
 		const plutosdrStreamFormat format;
+        	size_t mtu_size;
 		size_t buffer_size;
 		size_t items_in_buf;
 		bool direct_copy;
 		bool fast_timestamp_en;
-		bool difts_piggy_en;
 };
 
 class SoapyAdrvSDR : public SoapySDR::Device
