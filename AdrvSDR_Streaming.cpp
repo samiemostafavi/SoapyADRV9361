@@ -244,8 +244,16 @@ int SoapyAdrvSDR::readStreamStatus(SoapySDR::Stream *stream,size_t &chanMask,int
 	//printf("[SoapyAdrv] Monitoring %s for underflows/overflows\n",iio_device_get_name(dev));
 	//printf("[SoapyAdrv][rx_streamer] RX dif timestamp: %lld, TX dif timestamp: %lld \n",phandler->rxTimestampDif,phandler->txDifTimestampNS);
 	
-	/*sleep(1);
-	if(phandler->txDifTimestampNS != tmp)
+	sleep(5);
+	cout << left << setw(13) << "Link stats - " <<
+		left << setw(35) << "RX drops: " + to_string(phandler->rxdrops) + " (" + to_string((float)phandler->rxdrops*100.00/(float)phandler->rxidcounter) + " %)" <<
+        	left << setw(35) << "RX counter: " + to_string(phandler->rxidcounter) <<
+		left << setw(40) << "TX drops: " + to_string(phandler->txdrops) + " (" + to_string((double)phandler->txdrops*100.00/(double)phandler->txidcounter) + " %)" <<
+		left << setw(20) << "TX lates: " + to_string(phandler->txlates) <<
+       		left << setw(20) << " TX earlies: " + to_string(phandler->txearlies) <<
+       		left << setw(30) << " TX counter: " + to_string(phandler->txidcounter) << endl;
+
+	/*if(phandler->txDifTimestampNS != tmp)
 	{
 		printf("[SoapyAdrv][rx_streamer] TX dif timestamp: %lld \n",phandler->txDifTimestampNS);
 		tmp = phandler->txDifTimestampNS;
@@ -307,6 +315,8 @@ void rx_streamer::set_buffer_size_by_samplerate(const size_t samplerate)
     SoapySDR_logf(SOAPY_SDR_INFO, "Auto setting buffer size done");
 }
 
+uint64_t rxidcounterTMP = 0;
+
 size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &flags, long long &timeNs, const long timeoutUs)
 {
 	// Clock frequency = 100 MHz
@@ -339,22 +349,25 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			//printf("Got a timestamp in: %lld, received items: %d\n",phandler->rxTimestampDif,ret/4);
 			//printf("Got a timestamp (NS): %llu, original: %llu, received items: %d\n",phandler->rxTimestampNS,(*rx_timestamp_pointer),ret/4);
 		
+			// Read TX link stats data
         	        uint64_t* tx_timestamp_pointer = (uint64_t*)(rx_buffer+(buffer_size*4)-16);
-				
-        	        uint64_t* txrx_timestamp_pointer = (uint64_t*)(rx_buffer+(buffer_size*4)-24);
-				
-			//if(phandler->txDifTimestampNS != (*tx_timestamp_pointer)-(*txrx_timestamp_pointer))
-			//	printf("txdif: %lld\n",phandler->txDifTimestampNS);
-				
-			/*if(*tx_timestamp_pointer == 0 )
-				printf("L");
-			else if(*tx_timestamp_pointer == 1)
-				printf("E");
-			else
+			uint16_t* pdrops = (uint16_t*)tx_timestamp_pointer;
+			uint16_t* plates = pdrops + 1;
+			uint16_t* pearlies = pdrops + 2;
+			uint16_t* pidcounter = pdrops + 3;
+			//cout << "Stats - drops: " << *pdrops << " lates: " << *plates << " earlies: " << *pearlies << " idcounter: " << *pidcounter << endl;
+			phandler->txdrops = *pdrops;
+			phandler->txlates = *plates;
+			phandler->txearlies = *pearlies;
+			phandler->txidcounter = *pidcounter;
+			
+			// Read RX link stats data
+        	        uint64_t* p_rxidcounter = (uint64_t*)(rx_buffer+(buffer_size*4)-24);
+			if(*p_rxidcounter - phandler->rxidcounter > 1)
 			{
-				//phandler->txDifTimestampNS = ((*tx_timestamp_pointer)-(*txrx_timestamp_pointer))*ts_to_ns;
-				//printf("txdif: %lld\n",phandler->txDifTimestampNS);
-			}*/
+				phandler->rxdrops += (*p_rxidcounter - phandler->rxidcounter - 1);
+			}
+			phandler->rxidcounter = *p_rxidcounter;
 
 			// timestamp reading is done
 			// modify the items_in_buffer number so the rest of the code doesnt take the timestamp

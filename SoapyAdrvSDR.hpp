@@ -33,6 +33,7 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <iomanip>
 
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Logger.hpp>
@@ -75,6 +76,13 @@ typedef struct
 	uint64_t rxTimestampNS = 0;
 	int rxSamplingFrequency;
 	int64_t rxTimestampDif = 0;
+
+	uint16_t txdrops = 0;
+	uint16_t txlates = 0;
+	uint16_t txearlies = 0;
+	uint16_t txidcounter = 0;
+	uint64_t rxidcounter = 0;
+	uint64_t rxdrops = 0;
 
 } pluto_handler_t;
 
