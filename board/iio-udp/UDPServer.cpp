@@ -50,7 +50,7 @@ UDPServer::UDPServer(int _commandPort,int _streamPort, Controller* _controller) 
 
 	// Init controller server
 	controller->setServer(this);
-	
+
 	// A clean controller stop
 	controller->stop(RX);
 	controller->stop(TX);

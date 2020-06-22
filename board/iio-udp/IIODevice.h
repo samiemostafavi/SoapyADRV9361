@@ -22,7 +22,7 @@
 #include <stdexcept>
 
 #include <iio.h>
-#include <ad9361.h>
+//#include <ad9361.h>
 
 /* helper macros */
 #define MHZ(x) ((long long)(x*1000000.0 + .5))
@@ -85,6 +85,8 @@ class IIODevice
 		struct iio_channel *tx0_q;
 		struct iio_buffer  *rxbuf;
 		struct iio_buffer  *txbuf;
+
+		struct iio_device *phy;
 
 		int sent_count;
 		int recv_count;

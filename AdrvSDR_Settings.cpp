@@ -246,8 +246,6 @@ bool SoapyAdrvSDR::getGainMode(const int direction, const size_t channel) const
 
 void SoapyAdrvSDR::setGain( const int direction, const size_t channel, const double value )
 {
-	//return;
-
 	string res;
 
         if (direction == SOAPY_SDR_RX)

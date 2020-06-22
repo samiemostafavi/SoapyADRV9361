@@ -209,6 +209,10 @@ string Controller::runCommand(string cmdStr)
 			{
 		        	case RX:
 			        {
+					// Check if RX is active
+					if(rx_thread_active)
+						break;
+
 					// Start the rx streamer thread
 			                rx_thread_active = true;
 					
@@ -248,6 +252,10 @@ string Controller::runCommand(string cmdStr)
 		        	}
 			        case TX:
 			        {
+					// Check if tx is active
+					if(tx_thread_active)
+						break;
+
 					// Start the rx streamer thread
 			                tx_thread_active = true;
 
@@ -412,16 +420,16 @@ void Controller::stop(enum iodev d)
 {
 	if(d==RX)
 	{
-		// Stop the rx streamer thread
-	        rx_thread_active = false;
-		
-		// Join thread
-        	pthread_cancel(rx_thread);
-        	pthread_join(rx_thread, NULL);
-	
 		// Delete rxdev if exists	
 		if(rxdev != NULL)
 		{
+			// Stop the rx streamer thread
+		        rx_thread_active = false;
+		
+			// Join thread
+        		pthread_cancel(rx_thread);
+	        	pthread_join(rx_thread, NULL);
+
 		        rxdev->disableChannels(RX);
 			delete(rxdev);
 			rxdev = NULL;
@@ -429,16 +437,16 @@ void Controller::stop(enum iodev d)
 	}
 	else if(d==TX)
 	{
-		// Stop the rx streamer thread
-	        tx_thread_active = false;
-		
-		// Force stop the tx streamer thread
-        	pthread_cancel(tx_thread);
-        	pthread_join(tx_thread, NULL);
-		
 		// Delete txdev if exists
 		if(txdev != NULL)
 		{
+			// Stop the rx streamer thread
+		        tx_thread_active = false;
+		
+			// Force stop the tx streamer thread
+        		pthread_cancel(tx_thread);
+	        	pthread_join(tx_thread, NULL);
+
 		        txdev->disableChannels(TX);
 			delete(txdev);
 			txdev = NULL;

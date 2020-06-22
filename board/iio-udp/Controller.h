@@ -20,7 +20,7 @@ class UDPServer;
 class Controller
 {
         public:
-                Controller(IIODevice* _dev) : dev(_dev),server(NULL),rxdev(NULL),txdev(NULL) {}
+                Controller(IIODevice* _dev) : dev(_dev),server(NULL),rxdev(NULL),txdev(NULL), rx_thread_active(false), tx_thread_active(false) {}
                 ~Controller() { stop(RX); stop(TX); }
                 string runCommand(string cmdStr);
 		void stop(enum iodev d);
