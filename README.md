@@ -35,9 +35,26 @@ sudo sysctl -w net.core.rmem_max=12582912;
 
 1. Copy "board/iio-udp" folder into the SD card "rootfs/home/analog/iio-udp"
 
-2. Insert the line below into "crontab -e":
-   `@reboot make -C ~/iio-udp/make_log.tx 2>&1`
-3. Reboot the board
+2. Connect to the board using Ethernet by setting a manual IP (board static ip: 10.0.9.1)
+
+   ```
+   ssh analog@10.0.9.1
+   password: analog
+   ```
+
+3. Build the driver
+
+   ```
+   cd ~/iio-udp/; make
+   ```
+
+4. Insert the line below into "crontab -e":
+
+   ```
+   @reboot sleep 10 && ~/iio-udp/install.bash && ~/iio-udp/Server > ~/iio-udp/server_log.txt 2>&1
+   ```
+
+5. Reboot the board
 
 All the logs are stored in "analog/iio-udp/server_log.txt".
 

@@ -6,7 +6,7 @@ CFLAGS = -Wall
 
 .PHONY: all clean
 
-all: server clean install run
+all: server clean
 
 Controller.o: Controller.cpp
 	g++ -c Controller.cpp -O3 
@@ -23,11 +23,6 @@ main.o: main.cpp
 server: main.o UDPServer.o IIODevice.o Controller.o
 	g++ Controller.o IIODevice.o UDPServer.o main.o -lad9361 -liio -lpthread -o Server
 
-run:
-	./Server > server_log.txt 2>&1
-
 clean:
 	rm -f *.o
 
-install:
-	./install.bash > install_log.txt 2>&1
