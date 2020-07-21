@@ -96,7 +96,7 @@ class rx_streamer
 		int start(const int flags,const long long timeNs,const size_t numElems);
 		int stop(const int flags,const long long timeNs=100000);
 		void set_buffer_size_by_samplerate(const size_t _samplerate);
-	        size_t get_mtu_size() { return mtu_size; }
+	        size_t get_mtu_size() const { return mtu_size; }
         	pluto_handler_t* phandler;
 	private:
 		UDPClient* udpc;
@@ -105,7 +105,7 @@ class rx_streamer
 		const plutosdrStreamFormat format;
 		bool direct_copy;
 		void set_buffer_size(const int _buffer_size);
-        	size_t mtu_size;
+        	const size_t mtu_size;
 		size_t buffer_size;
 		bool fast_timestamp_en;
 };
@@ -120,13 +120,13 @@ class tx_streamer
 		int flush();
 		int start(const int flags,const long long timeNs,const size_t numElems);
 		int stop(const int flags,const long long timeNs=100000);
-	        size_t get_mtu_size() { return mtu_size; }
+	        size_t get_mtu_size() const { return mtu_size; }
         	pluto_handler_t* phandler;
 	private:
 		UDPClient* udpc;
 		int send_buf();
 		const plutosdrStreamFormat format;
-        	size_t mtu_size;
+        	const size_t mtu_size;
 		size_t buffer_size;
 		size_t items_in_buf;
 		bool direct_copy;
@@ -269,7 +269,7 @@ class SoapyAdrvSDR : public SoapySDR::Device
 		UDPClient* udpc;
 
 	        bool IsValidRxStreamHandle(SoapySDR::Stream* handle) const;
-        	bool IsValidTxStreamHandle(SoapySDR::Stream* handle);
+        	bool IsValidTxStreamHandle(SoapySDR::Stream* handle) const;
 		bool is_sensor_channel(struct iio_channel *chn) const;
 		double double_from_buf(const char *buf) const;
 		double get_sensor_value(struct iio_channel *chn) const;

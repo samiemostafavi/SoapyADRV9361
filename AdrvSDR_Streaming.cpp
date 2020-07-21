@@ -67,7 +67,7 @@ bool SoapyAdrvSDR::IsValidRxStreamHandle(SoapySDR::Stream* handle) const
 	return false;
 }
 
-bool SoapyAdrvSDR::IsValidTxStreamHandle(SoapySDR::Stream* handle)
+bool SoapyAdrvSDR::IsValidTxStreamHandle(SoapySDR::Stream* handle) const
 {
 	if (handle == nullptr) 
 		return false;
@@ -155,11 +155,22 @@ void SoapyAdrvSDR::closeStream(SoapySDR::Stream *handle)
 
 size_t SoapyAdrvSDR::getStreamMTU(SoapySDR::Stream *handle) const
 {
-	std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
-
-	if (IsValidRxStreamHandle(handle)) 
 	{
-		return this->rx_stream->get_mtu_size();
+		std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
+
+		if (IsValidRxStreamHandle(handle)) 
+		{
+			return this->rx_stream->get_mtu_size();
+		}
+	}
+	
+	{
+		std::lock_guard<pluto_spin_mutex> lock(tx_device_mutex);
+
+		if (IsValidTxStreamHandle(handle)) 
+		{
+			return this->tx_stream->get_mtu_size();
+		}
 	}
 
 	return 0;
@@ -264,13 +275,13 @@ int SoapyAdrvSDR::readStreamStatus(SoapySDR::Stream *stream,size_t &chanMask,int
 }
 
 rx_streamer::rx_streamer(UDPClient* _udpc, const plutosdrStreamFormat _format, const std::vector<size_t> &channels, const SoapySDR::Kwargs &args, pluto_handler_t* ph):
-	udpc(_udpc), format(_format), phandler(ph)
+	udpc(_udpc), format(_format), phandler(ph), mtu_size(udpc->getRXBufferSizeByte()/4 - 6)
 {
         SoapySDR_logf(SOAPY_SDR_INFO, "Constructing rx_streamer");
 
 	// Get the actual buffer size from UDPClient
         buffer_size = udpc->getRXBufferSizeByte()/4;
-	mtu_size = udpc->getRXBufferSizeByte()/4 - 6;
+	//mtu_size = udpc->getRXBufferSizeByte()/4 - 6;
 
         // Memset zero the buffer
 	memset(&rx_buffer,0,MAXBUF_SIZE_BYTE);
@@ -543,13 +554,13 @@ void rx_streamer::set_buffer_size(const int _buffer_size)
 
 
 tx_streamer::tx_streamer(UDPClient* _udpc, const plutosdrStreamFormat _format, const std::vector<size_t> &channels, const SoapySDR::Kwargs &args,pluto_handler_t* ph) :
-	udpc(_udpc),format(_format),phandler(ph)
+	udpc(_udpc),format(_format),phandler(ph), mtu_size(udpc->getTXBufferSizeByte()/4 - 6)
 {
         SoapySDR_logf(SOAPY_SDR_INFO, "Constructing tx_streamer");
 
 	// Get the actual buffer size from UDPClient
 	buffer_size = udpc->getTXBufferSizeByte()/4;
-	mtu_size = udpc->getTXBufferSizeByte()/4 - 6;
+	//mtu_size = udpc->getTXBufferSizeByte()/4 - 6;
 
 	// Memset zero the buffer
 	memset(&tx_buffer,0,MAXBUF_SIZE_BYTE);
