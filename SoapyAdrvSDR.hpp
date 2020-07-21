@@ -82,6 +82,7 @@ typedef struct
 	uint16_t txearlies = 0;
 	uint16_t txidcounter = 0;
 	uint64_t rxidcounter = 0;
+	uint64_t rxunderflows = 0;
 	uint64_t rxdrops = 0;
 
 } pluto_handler_t;
