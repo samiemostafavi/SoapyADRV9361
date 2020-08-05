@@ -24,6 +24,8 @@ static std::vector<SoapySDR::Kwargs> find_AdrvSDR(const SoapySDR::Kwargs &args)
 		strport = 50708;
 		//rxbuffersize = 5760+6;
 		//txbuffersize = 5760+50+6;
+		//rxbuffersize = 3840+6;
+		//txbuffersize = 3840+50+6;
 		rxbuffersize = 1920+6;
 		txbuffersize = 1920+50+6;
 	} 

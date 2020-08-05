@@ -620,23 +620,15 @@ int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flag
 	if(numElems == 0)
 		return 0;
 
-	// Clock frequency = 100 MHz
-        double ts_to_ns = (double)10;
-
-        // Clock frequency = 4*sampling frequency
-        //double ts_to_ns = (double)250000000/(double)phandler->txSamplingFrequency;
-        //if(isnan(ts_to_ns))
-        //      ts_to_ns = ((double)250000000.0)/((double)(5760000));
-	      
-	// Keep 6 samples free at the end of the buffer for the timestamp if it is enabled
-	size_t buf_size_revised;
-	if(fast_timestamp_en)
-		buf_size_revised = buffer_size - 6; // Buf_size is the number of samples in the buffer. The timestamp is 2 samples.
-	else
-		buf_size_revised = buffer_size;
-
+	// Keep 6 samples free at the end of the buffer for metadata
+	size_t buf_size_revised = buffer_size - 6; // Buf_size is the number of samples in the buffer. Metadata is 6 samples.
 	size_t items = std::min(buf_size_revised - items_in_buf, numElems);
-    
+
+	double ts_to_ns = (double)10;
+	int sampling_freq = phandler->txSamplingFrequency;
+	uint64_t tx_timestamp = ((double)timeNs)/((double)ts_to_ns);
+	uint64_t tx_duration = ((double)items*(double)1e9)/((double)sampling_freq*(double)ts_to_ns);
+
 	//struct timeval tv;
 	//gettimeofday(&tv,NULL);
 	//unsigned long time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
@@ -715,36 +707,32 @@ int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flag
 	//SoapySDR_logf(SOAPY_SDR_INFO, "send_buf items_in_buf: %d, buf_size_revised: %d, timeNs: %llu",(int)items_in_buf,(int)buf_size_revised,phandler->txTimestampNS);
 	//SoapySDR_logf(SOAPY_SDR_INFO, "send_buf items_in_buf: %d, buf_size: %d\n",(int)items_in_buf,(int)buf_size_revised);
 
-	//Write metadata
-	if(fast_timestamp_en)
-	{
-		// Write TX force timestamp
-		uint64_t* tx_timestamp_pointer = (uint64_t*)(tx_buffer+(buffer_size*4)-8);
-                //*tx_timestamp_pointer = (phandler->txTimestampNS)/ts_to_ns;
-		*tx_timestamp_pointer = ((double)timeNs)/((double)ts_to_ns);
+	// Write metadata
+	// Write TX timestamp
+	uint64_t* p_tx_timestamp = (uint64_t*)(tx_buffer+(buffer_size*4)-8);
+	*p_tx_timestamp = tx_timestamp;
 		
-		//printf("tx ts_to_ns: %f, txSamplingFrequency: %d, timeNs: %llu, timestamp double: %f\n",ts_to_ns,phandler->txSamplingFrequency, timeNs,tmp);
-		//printf("TX timestamp written: %llu\n",*tx_timestamp_pointer);
+	//printf("tx ts_to_ns: %f, txSamplingFrequency: %d, timeNs: %llu, timestamp double: %f\n",ts_to_ns,phandler->txSamplingFrequency, timeNs,tmp);
+	//if(*p_tx_timestamp < 100000)
+	//printf("TX timestamp written: %llu\n",*p_tx_timestamp);
 			
-		// Write TXRX timestamp
-		uint64_t* txrx_timestamp_pointer = (uint64_t*)(tx_buffer+(buffer_size*4)-16);
-		//*txrx_timestamp_pointer = (phandler->txTimestampNS)/ts_to_ns;
-		*txrx_timestamp_pointer = ((double)timeNs)/((double)ts_to_ns);
+	// Write frame duration
+	uint64_t* p_tx_duration = (uint64_t*)(tx_buffer+(buffer_size*4)-16);
+	*p_tx_duration = tx_duration;
 			
-		// Write TX flag
-		uint32_t* txflag_timestamp_pointer = (uint32_t*)(tx_buffer+(buffer_size*4)-24);
-                *txflag_timestamp_pointer = 1234512345;
+	// Write TX flag
+	uint32_t* p_tx_flag = (uint32_t*)(tx_buffer+(buffer_size*4)-24);
+        *p_tx_flag = 1234512345;
 
-		// Write TX id
-		uint16_t* txid_timestamp_pointer = (uint16_t*)(txflag_timestamp_pointer+1);
-                *txid_timestamp_pointer = txId;
+	// Write TX id
+	uint16_t* p_tx_id = (uint16_t*)(p_tx_flag+1);
+        *p_tx_id = txId;
 
-		// Write the actual TX frame size
-		uint16_t* txsize_pointer = txid_timestamp_pointer+1;
-		*txsize_pointer = buf_size_revised - items;
+	// Write the actual TX frame size
+	uint16_t* p_tx_size = p_tx_id+1;
+	*p_tx_size = buf_size_revised - items;
 			
-		items_in_buf += 6;
-	}
+	items_in_buf += 6;
 
 	int ret = send_buf();
 	if (ret < 0) 
@@ -771,12 +759,14 @@ int tx_streamer::send_buf()
 
 			memset(buf_ptr, 0, buf_end - buf_ptr);
 		}
-		
+			
+
 		//if(txId>500)
 		//	return -1;
-		
+
 		int ret = udpc->sendStreamBuffer(tx_buffer);
 		txId++;
+		
 		items_in_buf = 0;
 
 		if (ret < 0)
