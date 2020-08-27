@@ -9,7 +9,7 @@ CFLAGS = -Wall
 all: server clean
 
 Controller.o: Controller.cpp
-	g++ -c Controller.cpp -O3 
+	g++ -c Controller.cpp -O3
 
 IIODevice.o: IIODevice.cpp
 	g++ -c IIODevice.cpp -O3

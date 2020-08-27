@@ -269,6 +269,55 @@ int UDPServer::receiveStreamDiscard()
         return ret;
 }
 
+// Debug function
+uint64_t rxIdCounter = 0;
+uint64_t rxTimestamp = 0;
+uint64_t rxIdOffset = 0;
+vector<uint64_t> rxDrops;
+int UDPServer::sendStreamDiscard(char* buffer)
+{
+	int bufferSize = txBufferSizeByte;
+	double ts_to_ns = 10;
+	double rxSamplingFreq = 1920000;
+	double bufferDurationNS = (((double)(bufferSize/4)-6.000)/(rxSamplingFreq))*((double)1e9);
+
+	// Read the RX timestamp
+        uint64_t* pRxTimestamp = (uint64_t*)(buffer+bufferSize-8);
+        uint64_t rxT = ((double)(*pRxTimestamp))*((double)ts_to_ns);
+
+        // Read RX link stats data
+        uint64_t* pRxIdCounter = (uint64_t*)(buffer+bufferSize-24);
+        if (rxIdCounter == 0)
+        {
+        	rxIdOffset = (*pRxIdCounter)-1;
+		rxTimestamp = rxT;
+       	}
+        uint64_t rxIdC = (*pRxIdCounter) - rxIdOffset;
+
+        if(rxIdC - rxIdCounter > 1)
+        {
+        	for(uint64_t i = rxIdCounter+1; i<rxIdC; i++)
+		{
+                	rxDrops.push_back(i);
+			cout << "DROPPED id: " << i << endl;
+		}
+        }
+        rxIdCounter = rxIdC;
+
+	int diffNS = rxT - rxTimestamp;
+        int diffMS = (int)round((double)diffNS/bufferDurationNS);
+	if(diffMS > 1)
+	{
+		cout << "UNDERFLOW number: " << diffMS << endl;
+	}
+	rxTimestamp = rxT;
+	
+	int ret = txBufferSizeByte;
+	send_count += ret;
+	send_fr_count++;
+	return ret;
+}
+
 
 void UDPServer::setTXBufferSizeByte(int size)
 {

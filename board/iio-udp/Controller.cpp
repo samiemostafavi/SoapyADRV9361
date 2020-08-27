@@ -127,6 +127,7 @@ string Controller::runCommand(string cmdStr)
 				dev->setBufferSizeSample(d,int(val/4));
 
 				// set UDP server buffer size
+				// HERE TX is RX and RX is TX
 				if(d==RX)
 					server->setTXBufferSizeByte(val);
 				if(d==TX)
@@ -188,10 +189,11 @@ string Controller::runCommand(string cmdStr)
 			{
 				int val;
 				// get UDP buffer size
+				// HERE TX is RX and RX is TX
                                 if(d==RX)
-                                        val = server->getRXBufferSizeByte();
-                                if(d==TX)
                                         val = server->getTXBufferSizeByte();
+                                if(d==TX)
+                                        val = server->getRXBufferSizeByte();
 
 				stringstream ss;
 				ss << val;
@@ -222,31 +224,6 @@ string Controller::runCommand(string cmdStr)
 					        throw runtime_error("Unable to start stream RX thread");
 					
 					rx_thread = newThread;
-	
-					// Get the CPU affinity of the current thread and set it to CPU 1
-				        cpu_set_t cpuset;
-				        CPU_ZERO(&cpuset);
-				        CPU_SET(1,&cpuset);
-				        if(pthread_setaffinity_np(rx_thread,sizeof(cpu_set_t), &cpuset) < 0)
-				                cout << "Set RX thread affinity error" << endl;
-
-				        if(pthread_getaffinity_np(rx_thread,sizeof(cpu_set_t), &cpuset) < 0)
-				                cout << "Get RX thread affinity error" << endl;
-
-				        string cpuSetStr = "";
-				        if(CPU_ISSET(0,&cpuset))
-				                cpuSetStr += "0 ";
-				        if(CPU_ISSET(1,&cpuset))
-				                cpuSetStr += "1";
-
-				        //cout << "PID of the RX thread: " << ::getpid() << ", CPU: " << cpuSetStr << endl;
-				        cout << "RX thread CPU: " << cpuSetStr << endl;
-					
-					// Set thread priority realtime SCHED_FIFO
-					/*struct sched_param params;	
-					params.sched_priority = sched_get_priority_max(SCHED_FIFO);					
-					if(pthread_setschedparam(rx_thread,SCHED_FIFO,&params)<0)
-				                cout << "Set RX thread priority realtime error" << endl;*/
 					
 		                	break;
 		        	}
@@ -266,32 +243,6 @@ string Controller::runCommand(string cmdStr)
 					
 					tx_thread = newThread;
 	
-					// Get the CPU affinity of the current thread and set it to CPU 0
-				        cpu_set_t cpuset;
-				        CPU_ZERO(&cpuset);
-				        CPU_SET(0,&cpuset);
-				        if(pthread_setaffinity_np(tx_thread,sizeof(cpu_set_t), &cpuset) < 0)
-				                cout << "Set TX thread affinity error" << endl;
-
-				        if(pthread_getaffinity_np(tx_thread,sizeof(cpu_set_t), &cpuset) < 0)
-				                cout << "Get TX thread affinity error" << endl;
-
-				        string cpuSetStr = "";
-				        if(CPU_ISSET(0,&cpuset))
-				                cpuSetStr += "0 ";
-				        if(CPU_ISSET(1,&cpuset))
-				                cpuSetStr += "1";
-
-				        //cout << "PID of the TX thread: " << ::getpid() << ", CPU: " << cpuSetStr << end;
-				        cout << "TX thread CPU: " << cpuSetStr << endl;
-					
-					// Set thread priority realtime SCHED_FIFO
-					struct sched_param params;	
-					params.sched_priority = sched_get_priority_max(SCHED_FIFO);					
-					if(pthread_setschedparam(tx_thread,SCHED_FIFO,&params)<0)
-				                cout << "Set TX thread priority realtime error" << endl;
-
-
 		                	break;
 		        	}
 			}
@@ -336,6 +287,56 @@ string Controller::runCommand(string cmdStr)
 
 void* Controller::streamRX(void* controller)
 {
+	int ret = 0;
+
+	// Get current thread pointer
+	pthread_t this_thread = pthread_self();
+					
+	// Get the CPU affinity of the current thread and set it to CPU 1
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(1,&cpuset);
+	ret = pthread_setaffinity_np(this_thread,sizeof(cpu_set_t), &cpuset);
+	if(ret != 0)
+		cout << "RX thread set CPU affinity error ret: " << ret <<  endl;
+
+	ret = pthread_getaffinity_np(this_thread,sizeof(cpu_set_t), &cpuset);
+	if(ret != 0)
+		cout << "RX thread get CPU affinity error ret: " << ret << endl;
+
+	string cpuSetStr = "";
+	if(CPU_ISSET(0,&cpuset))
+		cpuSetStr += "0 ";
+
+	if(CPU_ISSET(1,&cpuset))
+		cpuSetStr += "1";
+
+	//cout << "PID of the RX thread: " << ::getpid() << ", CPU: " << cpuSetStr << endl;
+	cout << "RX thread is running on CPU: " << cpuSetStr << endl;
+	
+	// Set thread priority realtime SCHED_FIFO
+	struct sched_param params;
+	
+	// FIXME min or max!? 
+	params.sched_priority = sched_get_priority_max(SCHED_FIFO);
+	ret = pthread_setschedparam(this_thread,SCHED_FIFO,&params);
+	if(ret != 0)
+		cout << "RX thread set priority realtime error, ret: " << ret << endl;
+
+	// Now verify the change in thread priority
+	int policy = 0;
+     	if(pthread_getschedparam(this_thread, &policy, &params) != 0)
+        	cout << "RX thread couldn't retrieve real-time scheduling paramers" << endl;
+ 
+     	// Check the correct policy was applied
+     	if(policy != SCHED_FIFO) 
+        	cout << "RX thread scheduling is NOT SCHED_FIFO!" << endl;
+	else 
+        	cout << "RX thread SCHED_FIFO OK" << endl;
+ 
+	// Print thread scheduling priority
+	cout << "RX Thread priority is " << params.sched_priority << endl;
+
         Controller* p = static_cast<Controller*>(controller);
 	
 	if(p->server == NULL)
@@ -354,6 +355,10 @@ void* Controller::streamRX(void* controller)
 			char* buffer = p->rxdev->receiveBuffer();
 			// send it to the network
 			p->server->sendStreamBuffer(buffer);
+
+			// debug
+			//p->server->sendStreamDiscard(buffer);
+
 		}
 
 	}
@@ -374,6 +379,57 @@ void* Controller::streamRX(void* controller)
 
 void* Controller::streamTX(void* controller)
 {
+	int ret = 0;
+
+        // Get current thread pointer
+        pthread_t this_thread = pthread_self();
+
+        // Get the CPU affinity of the current thread and set it to CPU 0
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(0,&cpuset);
+        ret = pthread_setaffinity_np(this_thread,sizeof(cpu_set_t), &cpuset);
+        if(ret != 0)
+                cout << "TX thread set CPU affinity error ret: " << ret <<  endl;
+
+        ret = pthread_getaffinity_np(this_thread,sizeof(cpu_set_t), &cpuset);
+        if(ret != 0)
+                cout << "TX thread get CPU affinity error ret: " << ret << endl;
+
+        string cpuSetStr = "";
+        if(CPU_ISSET(0,&cpuset))
+                cpuSetStr += "0 ";
+
+        if(CPU_ISSET(1,&cpuset))
+                cpuSetStr += "1";
+
+        //cout << "PID of the TX thread: " << ::getpid() << ", CPU: " << cpuSetStr << endl;
+        cout << "TX thread is running on CPU: " << cpuSetStr << endl;
+
+        // Set thread priority realtime SCHED_FIFO
+        struct sched_param params;
+
+        // FIXME min or max!? 
+        params.sched_priority = sched_get_priority_max(SCHED_FIFO);
+        ret = pthread_setschedparam(this_thread,SCHED_FIFO,&params);
+        if(ret != 0)
+                cout << "TX thread set priority realtime error, ret: " << ret << endl;
+
+        // Now verify the change in thread priority
+        int policy = 0;
+        if(pthread_getschedparam(this_thread, &policy, &params) != 0)
+                cout << "TX thread couldn't retrieve real-time scheduling paramers" << endl;
+
+        // Check the correct policy was applied
+        if(policy != SCHED_FIFO)
+                cout << "TX thread scheduling is NOT SCHED_FIFO!" << endl;
+        else
+                cout << "TX thread SCHED_FIFO OK" << endl;
+
+        // Print thread scheduling priority
+        cout << "TX Thread priority is " << params.sched_priority << endl;
+
+
         Controller* p = static_cast<Controller*>(controller);
 
 	if(p->server == NULL)
@@ -397,7 +453,7 @@ void* Controller::streamTX(void* controller)
 			// push IIO buffer
 			p->txdev->sendBufferFast();
 			
-			// Debug FIXME
+			// Debug
 			//p->server->receiveStreamDiscard();
 		}
 	}

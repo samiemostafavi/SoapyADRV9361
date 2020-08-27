@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <iostream>
 #include <sys/time.h>
+#include <cmath>
 
 #include "Controller.h"
 
@@ -36,6 +37,7 @@ class UDPServer
                 static void* runCommands(void* server);
 		void runCommand();
                 int sendStreamBuffer(char* pBuffer);
+                int sendStreamDiscard(char* pBuffer);
                 int receiveStreamBuffer(char* pBuffer);
                 int receiveStreamDiscard();
                 void setTXBufferSizeByte(int size);

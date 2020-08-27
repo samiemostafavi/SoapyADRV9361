@@ -48,10 +48,10 @@ sudo sysctl -w net.core.rmem_max=12582912;
    cd ~/iio-udp/; make
    ```
 
-4. Insert the line below into "crontab -e":
+4. Insert the line below into "sudo crontab -e" (it is important to give root access to the server):
 
    ```
-   @reboot sleep 10 && ~/iio-udp/install.bash && ~/iio-udp/Server > ~/iio-udp/server_log.txt 2>&1
+   @reboot sleep 10 && /home/analog/iio-udp/install.bash && /home/analog/iio-udp/Server > /home/analog/iio-udp/server_log.txt 2>&1
    ```
 
 5. Reboot the board

@@ -247,20 +247,21 @@ bool SoapyAdrvSDR::getGainMode(const int direction, const size_t channel) const
 void SoapyAdrvSDR::setGain( const int direction, const size_t channel, const double value )
 {
 	string res;
+	int valueInt = (int)value;
 
         if (direction == SOAPY_SDR_RX)
         {
 
                 std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 
-                string req = string("set rx gain ") + to_string(value);
+                string req = string("set rx gain ") + to_string(valueInt);
                 res = udpc->sendCommand(req);
         }
         else if (direction == SOAPY_SDR_TX)
         {
                 std::lock_guard<pluto_spin_mutex> lock(tx_device_mutex);
 
-                string req = string("set tx gain ") + to_string(value-89);
+                string req = string("set tx gain ") + to_string(valueInt-89);
                 res = udpc->sendCommand(req);
         }
 
@@ -278,8 +279,6 @@ void SoapyAdrvSDR::setGain( const int direction, const size_t channel, const std
 
 double SoapyAdrvSDR::getGain( const int direction, const size_t channel, const std::string &name ) const
 {
-	//return 50;
-
 	string res;
 	double gain;
 
