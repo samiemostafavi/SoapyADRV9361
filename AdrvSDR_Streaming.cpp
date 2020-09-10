@@ -14,7 +14,7 @@
 #include "SoapyAdrvSDR.hpp"
 
 #define TS_TO_NS 10
-//#define RX_STAT_FILE
+#define RX_STAT_FILE 1
 
 char rx_buffer[MAXBUF_SIZE_BYTE];
 char tx_buffer[MAXBUF_SIZE_BYTE];
@@ -259,14 +259,24 @@ int SoapyAdrvSDR::readStreamStatus(SoapySDR::Stream *stream,size_t &chanMask,int
 	//printf("[SoapyAdrv][rx_streamer] RX dif timestamp: %lld, TX dif timestamp: %lld \n",phandler->rxTimestampDif,phandler->txDifTimestampNS);
 	
 	sleep(5);
+	
+	// double underflows to string with precision
+	ostringstream streamObj;
+	streamObj << fixed;
+	streamObj << setprecision(2);
+	streamObj << phandler->rxunderflows;
+	string strRxUnderflows = streamObj.str();
+
+	// print link stats
 	cout << left << setw(13) << "Link stats - " <<
-		left << setw(35) << "RX drops: " + to_string(phandler->rxdrops) + " (" + to_string((float)phandler->rxdrops*100.00/(float)phandler->rxidcounter) + " %)" <<
-        	left << setw(35) << "RX counter: " + to_string(phandler->rxidcounter) <<
-		left << setw(40) << "TX drops: " + to_string(phandler->txdrops) + " (" + to_string((double)phandler->txdrops*100.00/(double)phandler->txidcounter) + " %)" <<
-		left << setw(20) << "TX lates: " + to_string(phandler->txlates) <<
-       		//left << setw(20) << " TX earlies: " + to_string(phandler->txearlies) <<
-       		left << setw(20) << " RX underflows: " + to_string(phandler->rxunderflows) <<
-       		left << setw(30) << " TX counter: " + to_string(phandler->txidcounter) << endl;
+		left << setw(22) << "RX drops: " + to_string(phandler->rxdrops) <<
+        	left << setw(22) << "RX counter: " + to_string(phandler->rxidcounter) <<
+		left << setw(22) << "TX sot-cmd: " + to_string(phandler->tx_sot_cmd) <<
+		left << setw(22) << "TX drops: " + to_string(phandler->txdrops) <<
+		left << setw(22) << "TX lates: " + to_string(phandler->txlates) <<
+       		left << setw(22) << " TX earlies: " + to_string(phandler->txearlies) <<
+       		left << setw(30) << " RX underflows: " + strRxUnderflows <<
+       		left << setw(22) << " TX counter: " + to_string(phandler->txidcounter) << endl;
 
 	/*if(phandler->txDifTimestampNS != tmp)
 	{
@@ -298,7 +308,7 @@ rx_streamer::rx_streamer(UDPClient* _udpc, const plutosdrStreamFormat _format, c
 	fast_timestamp_en = true;
 }
 
-#ifdef RX_STAT_FILE
+#if RX_STAT_FILE
 vector<uint64_t> rxdrops;
 vector<int> rxunderflowsDiff;
 vector<uint64_t> rxunderflowsID;
@@ -306,7 +316,7 @@ vector<uint64_t> rxunderflowsID;
 
 rx_streamer::~rx_streamer()
 {
-#ifdef RX_STAT_FILE
+#if RX_STAT_FILE
         //print rx drops and underflows ids to txt file
         FILE *fpOut;
         if((fpOut = fopen("/tmp/adrv_rxdrops.txt", "w")) == NULL)
@@ -408,7 +418,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			// Calculate underflow
 			double bufferDurationNS = (((double)buffer_size-6.000)/((double)phandler->rxSamplingFrequency))*((double)1e9);
 			int diffNS = tmpRxTimestampNS - phandler->rxTimestampNS;
-			int diffMS = (int)round((double)diffNS/bufferDurationNS);
+			double diffMS = (double)diffNS/bufferDurationNS;
 
 			//printf("rx ts_to_ns: %LG\n",ts_to_ns());
 			//printf("Got a timestamp in: %lld, received items: %d\n",phandler->rxTimestampDif,ret/4);
@@ -427,7 +437,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			phandler->txidcounter = *pidcounter;
 			
 			// Read RX link stats data
-        	        uint64_t* p_rxidcounter = (uint64_t*)(rx_buffer+(buffer_size*4)-24);
+        	        uint32_t* p_rxidcounter = (uint32_t*)(rx_buffer+(buffer_size*4)-24);
 			if (phandler->rxidcounter == 0)
 			{
 				rxidOffset = *p_rxidcounter-1;
@@ -436,7 +446,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			
 			if(rxidc - phandler->rxidcounter > 1)
 			{
-#ifdef RX_STAT_FILE
+#if RX_STAT_FILE
 				// SAVE RX drops TO FILE
 				for(uint64_t i = phandler->rxidcounter+1; i<rxidc; i++)
 					rxdrops.push_back(i);
@@ -447,20 +457,23 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			// Set rxidcounter into the handler
 			phandler->rxidcounter = rxidc;
 			
-			// If we have underflows
-			if(diffMS > 1)
+			// If we have underflows above threshold ~100 us
+			if(diffMS > 1.1)
 			{
-#ifdef RX_STAT_FILE
+#if RX_STAT_FILE
 				// SAVE RX underflow TO FILE
 				rxunderflowsID.push_back(phandler->rxidcounter);
-				rxunderflowsDiff.push_back(diffMS);
+				rxunderflowsDiff.push_back(diffNS-1000000);
 #endif
-
-				phandler->rxunderflows += diffMS;
+				phandler->rxunderflows += diffMS-1;
 			}
 
 			// Set rxtimestamp into the handler
 			phandler->rxTimestampNS = tmpRxTimestampNS;
+			
+			// Read tx sot_cmd and copy to handler
+        	        uint32_t* psot_cmd = p_rxidcounter+1;
+			phandler->tx_sot_cmd = *psot_cmd;
 			
 			// timestamp reading is done
 			// modify the items_in_buffer number so the rest of the code doesnt take the timestamp
@@ -690,8 +703,8 @@ unsigned long prevTime = 0;
 
 int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flags,const long long timeNs,const long timeoutUs )
 {
-	if(numElems == 0)
-		return 0;
+	if(numElems < 20)
+		return numElems;
 
 	// Keep 6 samples free at the end of the buffer for metadata
 	size_t buf_size_revised = buffer_size - 6; // Buf_size is the number of samples in the buffer. Metadata is 6 samples.
