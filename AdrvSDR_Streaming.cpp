@@ -474,6 +474,11 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			// Read tx sot_cmd and copy to handler
         	        uint32_t* psot_cmd = p_rxidcounter+1;
 			phandler->tx_sot_cmd = *psot_cmd;
+			//if(phandler->tx_sot_cmd > 100 || phandler->tx_sot_cmd < -100)
+			//{
+			//	cout << phandler->tx_sot_cmd << endl;
+			//}
+
 			
 			// timestamp reading is done
 			// modify the items_in_buffer number so the rest of the code doesnt take the timestamp
@@ -817,7 +822,7 @@ int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flag
 	// Write the actual TX frame size
 	uint16_t* p_tx_size = p_tx_id+1;
 	*p_tx_size = buf_size_revised - items;
-			
+		
 	items_in_buf += 6;
 
 	int ret = send_buf();

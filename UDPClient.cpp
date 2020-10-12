@@ -52,7 +52,7 @@ UDPClient::UDPClient(int _serverCommandPort,int _serverStreamPort,string _server
         servSTRAddr.sin_family = AF_INET;                   /* Internet address family */
 	servSTRAddr.sin_addr.s_addr = inet_addr(serverIP.c_str());      /* Server IP address */
         servSTRAddr.sin_port = htons(serverStreamPort);    /* Local port */
-
+	
 	// Create streaming socket for receiving datagrams
         if ((streamSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
                 throw runtime_error("Unable to create the stream socket");
@@ -65,6 +65,34 @@ UDPClient::UDPClient(int _serverCommandPort,int _serverStreamPort,string _server
         // Connecting to the streaming socket of the server
         if (connect(streamSocket,(struct sockaddr*) &servSTRAddr, sizeof(servSTRAddr)) < 0)
                 throw runtime_error("Stream socket connection failed, ip: " + serverIP + " port: " + to_string(serverStreamPort));
+	
+
+#if DUAL_ETHERNET
+
+	// TX streaming network interface
+
+	serverIP_tx = "10.0.10.1";
+	int serverStreamPort_tx = serverStreamPort;
+	// create servSTRAddr_tx
+        memset(&servSTRAddr_tx, 0, sizeof(servSTRAddr_tx));
+        servSTRAddr_tx.sin_family = AF_INET;                   /* Internet address family */
+	servSTRAddr_tx.sin_addr.s_addr = inet_addr(serverIP_tx.c_str());      /* Server IP address */
+        servSTRAddr_tx.sin_port = htons(serverStreamPort_tx);    /* Local port */
+	
+	// Create streaming socket for receiving datagrams
+        if ((streamSocket_tx = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+                throw runtime_error("Unable to create the TX stream socket");
+
+	// Set the socket as reusable
+        true_v = 1;
+        if (setsockopt(streamSocket_tx, SOL_SOCKET, SO_REUSEADDR, &true_v, sizeof (int))!=0)
+                throw runtime_error("Unable to make the TX streaming socket reusable");
+
+        // Connecting to the streaming socket of the server
+        if (connect(streamSocket_tx,(struct sockaddr*) &servSTRAddr_tx, sizeof(servSTRAddr_tx)) < 0)
+                throw runtime_error("Stream socket TX connection failed, ip: " + serverIP_tx + " port: " + to_string(serverStreamPort_tx));
+
+#endif
 
 	// Init procedure (send cmd init, receive cmd ack, send buffer dummy)
 	initProcedure();
@@ -74,6 +102,7 @@ UDPClient::~UDPClient()
 {
 	close(commandSocket);
 	close(streamSocket);
+	close(streamSocket_tx);
 }
 
 
@@ -90,7 +119,7 @@ void UDPClient::initProcedure()
 	setRXBufferSizeByte(rxBufferSizeByte);
 	setTXBufferSizeByte(txBufferSizeByte);
 
-	cout << "Connected to the ADRV board (server), ip: " << serverIP << " port: " << to_string(serverStreamPort) << endl;
+	cout << "Connected to the ADRV board (server), ip: " << serverIP << " - " << serverIP_tx << " port: " << to_string(serverStreamPort) << endl;
 }
 
 string UDPClient::sendCommand(string cmd)
@@ -142,7 +171,11 @@ void UDPClient::setRXBufferSizeByte(int sizeByte)
 
 int UDPClient::sendStreamBuffer(char* pBuffer)
 {
+#if DUAL_ETHERNET
+	int ret = send(streamSocket_tx, pBuffer, txBufferSizeByte, 0);
+#else
 	int ret = send(streamSocket, pBuffer, txBufferSizeByte, 0);
+#endif
 	if(ret < 0)
 		return ret;
 

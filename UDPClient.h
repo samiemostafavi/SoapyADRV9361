@@ -19,6 +19,8 @@ using namespace std;
 
 #define DUMMYBUF_SIZE_BYTE 4096*4
 #define MESSAGE_LENGTH_CHAR 1024
+#define DUAL_ETHERNET 1
+
 
 class UDPClient
 {
@@ -41,13 +43,16 @@ class UDPClient
 	private:
 		struct sockaddr_in servCMDAddr;
 		struct sockaddr_in servSTRAddr;
+		struct sockaddr_in servSTRAddr_tx;
 		int serverCommandPort;
 		int serverStreamPort;
 		int streamSocket;
+		int streamSocket_tx;
 		int commandSocket;
 		int rxBufferSizeByte;
 		int txBufferSizeByte;
 		string serverIP;
+		string serverIP_tx;
 		struct timeval tv;
 		int send_count;
 		int recv_count;
