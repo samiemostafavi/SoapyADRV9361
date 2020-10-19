@@ -46,6 +46,7 @@ class UDPServer
                 int getRXBufferSizeByte() { return rxBufferSizeByte; }
                 int getSentCount() { return send_count; }
                 int getRecvCount() { return recv_count; }
+		int getStreamSocket() { return streamSocket; }
                 struct sockaddr_in getClientSTRAddr() { return clntSTRAddr; }
                 struct sockaddr_in getClientCMDAddr() { return clntCMDAddr; }
         private:

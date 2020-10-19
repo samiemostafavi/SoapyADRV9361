@@ -199,7 +199,7 @@ void SoapyAdrvSDR::setGainMode( const int direction, const size_t channel, const
         	std::lock_guard<pluto_spin_mutex> lock(rx_device_mutex);
 		if (automatic)
 		{
-			string req = "set rx gainmode slow_attack";
+			string req = "set rx gainmode fast_attack";
 	                res = udpc->sendCommand(req);
 		}
 		else

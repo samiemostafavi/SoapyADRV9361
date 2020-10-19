@@ -19,7 +19,7 @@ using namespace std;
 
 #define DUMMYBUF_SIZE_BYTE 4096*4
 #define MESSAGE_LENGTH_CHAR 1024
-#define DUAL_ETHERNET 1
+#define DUAL_ETHERNET 0
 
 
 class UDPClient

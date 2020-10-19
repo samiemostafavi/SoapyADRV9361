@@ -38,7 +38,6 @@ enum iodev { RX, TX };
 struct stream_cfg 
 {
         long long bw_hz; 	// Analog banwidth in Hz
-        long long fs_hz; 	// Baseband sample rate in Hz
         long long lo_hz; 	// Local oscillator frequency in Hz
         string rfport; 		// Port name
 };
@@ -47,16 +46,18 @@ struct stream_cfg
 class IIODevice
 {
 	public:
-		IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample,struct stream_cfg _RXConfig, struct stream_cfg _TXConfig);
+		IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample,struct stream_cfg _RXConfig, struct stream_cfg _TXConfig,long long rxsf, long long txsf);
 		IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample);
 		~IIODevice();
-		void enableChannels(enum iodev d);
+		struct iio_buffer* enableChannels(enum iodev d);
 		void disableChannels(enum iodev d);
 		void setConfig(struct stream_cfg _rxConfig,enum iodev type);
 		struct stream_cfg getConfig(enum iodev d);
 		bool isStreaming(enum iodev d);
 		void setGain(enum iodev d, long long gain);
 		long long getGain(enum iodev d);
+		void setSamplingFrequency(enum iodev d, long long sf);
+                long long getSamplingFrequency(enum iodev d);
 		string getGainMode(enum iodev d);
 		void setGainMode(enum iodev d, string gainMode);
 		char* receiveBuffer();
@@ -65,6 +66,8 @@ class IIODevice
 		void sendBufferFast();
 		int getRXBufferSizeSample() {return rxBufferSizeSample; }
 		int getTXBufferSizeSample() {return txBufferSizeSample; }
+		struct iio_channel* getTx0_i() { return tx0_i; }
+		struct iio_channel* getRx0_i() { return rx0_i; }
 		void setBufferSizeSample(enum iodev d,int size);
 	private:
 		int rxBufferSizeSample;
@@ -75,6 +78,9 @@ class IIODevice
 	
 		float rxGain;
 		float txGain;
+
+		long long rxSamplingFrequency;
+		long long txSamplingFrequency;
 
 		struct iio_context *ctx;
 		struct iio_device *rx;

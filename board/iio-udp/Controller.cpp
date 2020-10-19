@@ -12,6 +12,8 @@ string Controller::runCommand(string cmdStr)
 	enum iodev d;
 	char* endptr = NULL;
 
+	cout << "cmd: " << cmdStr << endl;
+
 	string response;
 
 	try
@@ -74,18 +76,12 @@ string Controller::runCommand(string cmdStr)
 			}
 			else if(vstrings[2]=="samplerate")
 			{
-				// get the config struct
-				struct stream_cfg conf = dev->getConfig(d);
-
 				// convert string to long long
 				long long val;
 				val = strtoll(vstrings[3].c_str(), &endptr, 10);
 
-				// set the value
-				conf.fs_hz = val;
-
 				// configure
-				dev->setConfig(conf,d);
+				dev->setSamplingFrequency(d,val);
 
 				response = "done";
 			}
@@ -171,10 +167,10 @@ string Controller::runCommand(string cmdStr)
 			}
 			else if(vstrings[2]=="samplerate")
 			{
-				// get the config struct
-				struct stream_cfg conf = dev->getConfig(d);
+				// get the sf
+				long long sf = dev->getSamplingFrequency(d);
 				stringstream ss;
-				ss << conf.fs_hz;
+				ss << sf;
 				response = ss.str();
 			}
 			else if(vstrings[2]=="bandwidth")
@@ -207,66 +203,14 @@ string Controller::runCommand(string cmdStr)
 		else if (vstrings[0]=="start")
 		{
 			// Start streaming thread
-			switch (d)
-			{
-		        	case RX:
-			        {
-					// Check if RX is active
-					if(rx_thread_active)
-						break;
-
-					// Start the rx streamer thread
-			                rx_thread_active = true;
-					
-					// Start the rx streamer thread
-					pthread_t newThread;
-					if(pthread_create(&newThread, NULL, &Controller::streamRX,this) != 0)
-					        throw runtime_error("Unable to start stream RX thread");
-					
-					rx_thread = newThread;
-					
-		                	break;
-		        	}
-			        case TX:
-			        {
-					// Check if tx is active
-					if(tx_thread_active)
-						break;
-
-					// Start the rx streamer thread
-			                tx_thread_active = true;
-
-					// Start the tx streamer thread
-					pthread_t newThread;
-					if(pthread_create(&newThread, NULL, &Controller::streamTX,this) != 0)
-					        throw runtime_error("Unable to start stream TX thread");
-					
-					tx_thread = newThread;
-	
-		                	break;
-		        	}
-			}
-
+			start(d);
 			response = "done";
 
 	  	}
 		else if (vstrings[0]=="stop")
 		{
-			switch (d)
-                        {
-                                case RX:
-                                {
-					if(rx_thread_active)
-						stop(RX);
-					break;
-				}
-				case TX:
-				{
-					if(tx_thread_active)
-						stop(TX);
-					break;
-				}
-			}
+			// Stop streaming thread
+			stop(d);
 			response = "done";
 	  	}
 		else
@@ -280,7 +224,7 @@ string Controller::runCommand(string cmdStr)
 	}
 	
 	// printout the request and the response
-	cout << cmdStr << " : " << response << endl;
+	cout << "res: " << response << endl;
 
 	return response;
 }
@@ -295,7 +239,7 @@ void* Controller::streamRX(void* controller)
 	// Get the CPU affinity of the current thread and set it to CPU 1
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
-	CPU_SET(1,&cpuset);
+	CPU_SET(0,&cpuset);
 	ret = pthread_setaffinity_np(this_thread,sizeof(cpu_set_t), &cpuset);
 	if(ret != 0)
 		cout << "RX thread set CPU affinity error ret: " << ret <<  endl;
@@ -317,7 +261,7 @@ void* Controller::streamRX(void* controller)
 	// Set thread priority realtime SCHED_FIFO
 	struct sched_param params;
 	
-	// FIXME min or max!? 
+	// Processes with numerically higher priority values are scheduled before processes with numerically lower priority values 
 	params.sched_priority = sched_get_priority_max(SCHED_FIFO);
 	ret = pthread_setschedparam(this_thread,SCHED_FIFO,&params);
 	if(ret != 0)
@@ -343,22 +287,34 @@ void* Controller::streamRX(void* controller)
 		throw runtime_error("Server is not initialized yet in streamRX.");
 	
 	p->rx_thread_active = true;
-	
-	// new rx dev 
-	p->rxdev = new IIODevice(p->dev->getRXBufferSizeSample(),p->dev->getTXBufferSizeSample()); 
-	p->rxdev->enableChannels(RX);
+
+	// IIO inits
+	int nbytes_rx = 0;
+	char* buffer = NULL;
+	struct iio_buffer* rxbuf = p->dev->enableChannels(RX);
+	struct iio_channel* rx0_i = p->dev->getRx0_i();	
+
+	// Server inits
+	int streamSocket = p->server->getStreamSocket();
+	int txBufferSizeByte = p->server->getTXBufferSizeByte();
+	struct sockaddr_in clntSTRAddr = p->server->getClientSTRAddr();
+
 	try
 	{
 		while(p->rx_thread_active)
                 {
-			// get the buffer from IIO
-			char* buffer = p->rxdev->receiveBuffer();
-			// send it to the network
-			p->server->sendStreamBuffer(buffer);
+                	// Receive a buffer from IIO
+		        nbytes_rx = iio_buffer_refill(rxbuf);
+                	if (nbytes_rx < 0)
+		        	throw runtime_error("Error refilling buf from IIO ad9361");
+	
+			// Get the pointer from IIO
+			buffer = (char*)iio_buffer_first(rxbuf,rx0_i);
 
-			// debug
-			//p->server->sendStreamDiscard(buffer);
-
+			// Send it to the network
+			int ret = sendto(streamSocket, buffer, txBufferSizeByte, 0, (struct sockaddr*) &(clntSTRAddr), sizeof(clntSTRAddr));
+        		if(ret < 0)
+                		throw runtime_error("Server sending the buffer failed");
 		}
 
 	}
@@ -366,15 +322,41 @@ void* Controller::streamRX(void* controller)
         {
                 cout << "Runtime error: " << re.what() << endl;
         }
-	
-	p->rxdev->disableChannels(RX);
-	delete(p->rxdev);
-	p->rxdev = NULL;
+	p->dev->disableChannels(RX);
 
 	// Announce
 	p->rx_thread_active = false;
 	printf("Controller RX thread is stopped\n");
 
+}
+
+int txId = 0;
+void generateDummyTXBuffer(char* tx_buffer,int buffer_size)
+{
+	uint64_t tx_duration = 100000;
+
+	// Write metadata
+        // Write TX timestamp
+        uint64_t* p_tx_timestamp = (uint64_t*)(tx_buffer+(buffer_size*4)-8);
+        *p_tx_timestamp = 0;
+
+	// Write frame duration
+        uint64_t* p_tx_duration = (uint64_t*)(tx_buffer+(buffer_size*4)-16);
+        *p_tx_duration = tx_duration;
+
+        // Write TX flag
+        uint32_t* p_tx_flag = (uint32_t*)(tx_buffer+(buffer_size*4)-24);
+        *p_tx_flag = 1234512345;
+
+        // Write TX id
+        uint16_t* p_tx_id = (uint16_t*)(p_tx_flag+1);
+        *p_tx_id = txId;
+
+        // Write the actual TX frame size
+        uint16_t* p_tx_size = p_tx_id+1;
+        *p_tx_size = 50;
+
+	txId++;
 }
 
 void* Controller::streamTX(void* controller)
@@ -387,7 +369,7 @@ void* Controller::streamTX(void* controller)
         // Get the CPU affinity of the current thread and set it to CPU 0
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
-        CPU_SET(0,&cpuset);
+        CPU_SET(1,&cpuset);
         ret = pthread_setaffinity_np(this_thread,sizeof(cpu_set_t), &cpuset);
         if(ret != 0)
                 cout << "TX thread set CPU affinity error ret: " << ret <<  endl;
@@ -409,7 +391,7 @@ void* Controller::streamTX(void* controller)
         // Set thread priority realtime SCHED_FIFO
         struct sched_param params;
 
-        // FIXME min or max!? 
+	// Processes with numerically higher priority values are scheduled before processes with numerically lower priority values 
         params.sched_priority = sched_get_priority_max(SCHED_FIFO);
         ret = pthread_setschedparam(this_thread,SCHED_FIFO,&params);
         if(ret != 0)
@@ -436,76 +418,107 @@ void* Controller::streamTX(void* controller)
 		throw runtime_error("Server is not initialized yet in streamTX.");
 
 	p->tx_thread_active = true;
-
-
-	// new tx dev 
-        p->txdev = new IIODevice(p->dev->getRXBufferSizeSample(),p->dev->getTXBufferSizeSample());
-	p->txdev->enableChannels(TX);
 	
+	// IIO inits
+	char* buffer;
+        struct iio_buffer* txbuf = p->dev->enableChannels(TX);
+	struct iio_channel* tx0_i = p->dev->getTx0_i();
+
+        // Server inits
+	ret = 0;
+	int rxBufferSizeByte = p->server->getRXBufferSizeByte();
+	int streamSocket = p->server->getStreamSocket();
+	int nbytes_tx = 0;
+
 	try
 	{
 		while(p->tx_thread_active)
                 {
-			// get the IIO buffer pointer
-			char* buffer = p->txdev->getTXBufferPointer();
-			// fill it from the network
-			p->server->receiveStreamBuffer(buffer);
-			// push IIO buffer
-			p->txdev->sendBufferFast();
+			// Get IIO buffer pointer, copy the data
+	                buffer = (char*) iio_buffer_first(txbuf,tx0_i);
+
+			ret = recv(streamSocket, buffer, rxBufferSizeByte, 0);
+        		if((ret < 0) || (ret != rxBufferSizeByte))
+		                throw runtime_error("Receiving the buffer from server faild");
 			
-			// Debug
-			//p->server->receiveStreamDiscard();
+			//generateDummyTXBuffer(buffer,rxBufferSizeByte/4);
+			
+			// Push the buffer only
+	                nbytes_tx = iio_buffer_push(txbuf);
+        	        if (nbytes_tx < 0)
+                	        throw runtime_error("Error pushing the buffer to IIO ad9361");
 		}
 	}
 	catch(runtime_error& re)
         {
                 cout << "Runtime error: " << re.what() << endl;
         }
-	
-	// delete and finish txdev
-	p->txdev->disableChannels(TX);
-	delete(p->txdev);
-	p->txdev = NULL;
+	p->dev->disableChannels(TX);
 
 	// Announce
 	p->tx_thread_active = false;
 	printf("Controller TX thread is stopped\n");
 }
 
+void Controller::start(enum iodev d)
+{
+	if(d==RX)
+	{
+		// Check if RX is active
+                if(rx_thread_active)
+                	return;
+		
+		// Start the rx streamer thread
+                rx_thread_active = true;
+
+                // Start the rx streamer thread
+                pthread_t newThread;
+                if(pthread_create(&newThread, NULL, &Controller::streamRX,this) != 0)
+                     	throw runtime_error("Unable to start stream RX thread");
+
+		rx_thread = newThread;
+	}
+	else if(d==TX)
+	{
+		// Check if TX is active
+                if(tx_thread_active)
+                	return;
+		
+		// Start the rx streamer thread
+                tx_thread_active = true;
+
+                // Start the tx streamer thread
+                pthread_t newThread;
+                if(pthread_create(&newThread, NULL, &Controller::streamTX,this) != 0)
+                       	throw runtime_error("Unable to start stream TX thread");
+
+                tx_thread = newThread;
+	}
+}
+
 void Controller::stop(enum iodev d)
 {
 	if(d==RX)
 	{
-		// Delete rxdev if exists	
-		if(rxdev != NULL)
-		{
-			// Stop the rx streamer thread
-		        rx_thread_active = false;
+		// Stop the rx streamer thread
+		rx_thread_active = false;
 		
-			// Join thread
-        		pthread_cancel(rx_thread);
-	        	pthread_join(rx_thread, NULL);
-
-		        rxdev->disableChannels(RX);
-			delete(rxdev);
-			rxdev = NULL;
-		}	
+		// Join thread
+        	pthread_cancel(rx_thread);
+	        pthread_join(rx_thread, NULL);
+	
+		dev->disableChannels(RX);
 	}
 	else if(d==TX)
 	{
-		// Delete txdev if exists
-		if(txdev != NULL)
-		{
-			// Stop the rx streamer thread
-		        tx_thread_active = false;
+		// Stop the rx streamer thread
+		tx_thread_active = false;
 		
-			// Force stop the tx streamer thread
-        		pthread_cancel(tx_thread);
-	        	pthread_join(tx_thread, NULL);
-
-		        txdev->disableChannels(TX);
-			delete(txdev);
-			txdev = NULL;
-		}
+		// Force stop the tx streamer thread
+        	pthread_cancel(tx_thread);
+	        pthread_join(tx_thread, NULL);
+		
+		dev->disableChannels(TX);
 	}
 }
+

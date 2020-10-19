@@ -306,6 +306,12 @@ rx_streamer::rx_streamer(UDPClient* _udpc, const plutosdrStreamFormat _format, c
 	
 	// Run the RX timestamp async thread
 	fast_timestamp_en = true;
+
+	// Set the AGC mode automatic and fast_attack
+	/*string req = "set rx gainmode fast_attack";
+        string res = udpc->sendCommand(req);
+	if(res.find("error") != string::npos)
+		cout << "Unable to set RX gainmode fast_attacl" << endl;*/
 }
 
 #if RX_STAT_FILE
@@ -391,6 +397,7 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 {
 	// Clock frequency = 100 MHz
 	double ts_to_ns = (double)TS_TO_NS;
+
 
 	// Clock frequency = 4*sampling frequency
 	//double ts_to_ns = (double)250000000/(double)phandler->rxSamplingFrequency;

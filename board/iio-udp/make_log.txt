@@ -1,0 +1,10 @@
+make: Entering directory `/home/analog/iio-udp'
+make: Warning: File `Makefile' has modification time 1.6e+09 s in the future
+g++ -c main.cpp -O3
+g++ -c UDPServer.cpp -O3
+g++ -c IIODevice.cpp -O3
+g++ -c Controller.cpp -O3 
+g++ Controller.o IIODevice.o UDPServer.o main.o -lad9361 -liio -lpthread -o Server
+rm -f *.o
+make: warning:  Clock skew detected.  Your build may be incomplete.
+make: Leaving directory `/home/analog/iio-udp'

@@ -24,6 +24,7 @@ class Controller
                 ~Controller() { stop(RX); stop(TX); }
                 string runCommand(string cmdStr);
 		void stop(enum iodev d);
+		void start(enum iodev d);
 		void setServer(UDPServer* _server) { server = _server; }
         private:
                 IIODevice* dev;

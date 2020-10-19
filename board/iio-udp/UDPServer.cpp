@@ -16,7 +16,7 @@ UDPServer::UDPServer(int _commandPort,int _streamPort, Controller* _controller) 
         servCMDAddr.sin_addr.s_addr = htonl(INADDR_ANY);   // Any incoming interface
         servCMDAddr.sin_port = htons(commandPort);           // Local port
 
-        // Create socket for receiving datagrams
+        // Create socket for receiving command datagrams
         if ((commandSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
                 throw runtime_error("Unable to create the command socket");
 
@@ -29,13 +29,13 @@ UDPServer::UDPServer(int _commandPort,int _streamPort, Controller* _controller) 
         if (bind(commandSocket, (struct sockaddr *) &servCMDAddr, sizeof(servCMDAddr)) < 0)
                 throw runtime_error("Unable to bind the socket");
 
-       	// Streaming  
+       	// Streaming
 	memset(&servSTRAddr, 0, sizeof(servSTRAddr));
         servSTRAddr.sin_family = AF_INET;                  // Internet address family
         servSTRAddr.sin_addr.s_addr = htonl(INADDR_ANY);   // Any incoming interface
-        servSTRAddr.sin_port = htons(streamPort);           // Local port
+        servSTRAddr.sin_port = htons(streamPort);          // Local port
         
-	// Create socket for receiving datagrams
+	// Create socket for receiving/transmitting streamed datagrams
         if ((streamSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
                 throw runtime_error("Unable to create the command socket");
 
