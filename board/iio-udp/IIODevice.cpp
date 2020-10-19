@@ -617,11 +617,10 @@ void IIODevice::setSamplingFrequency(enum iodev d,long long sf)
 	// Set if it is new
 	if(sf != ((d == RX) ? (rxSamplingFrequency) : (txSamplingFrequency)))
         {
-                if(ad9361_set_bb_rate(phy,(unsigned long)sf))
+		if(ad9361_set_bb_rate(phy,(unsigned long)sf))
                         throw runtime_error("Unable to set BB rate.");
-                
+		
 		wr_ch_lli(chn, "sampling_frequency", sf);
-
         }
 
         // update the member variables

@@ -33,6 +33,13 @@ sudo sysctl -w net.core.rmem_max=12582912;
 
 ### On the ADRV Board
 
+0. Setup a static ip on eth0 interface of ADRV by appending the lines below to "rootfs/etc/network/interfaces"
+   ```
+   auto eth0
+   iface eth0 inet static
+   	address 10.0.9.1/24
+   ```
+
 1. Copy "board/iio-udp" folder into the SD card "rootfs/home/analog/iio-udp"
 
 2. Connect to the board using Ethernet by setting a manual IP (board static ip: 10.0.9.1)

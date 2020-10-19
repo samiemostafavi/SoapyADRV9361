@@ -9,16 +9,16 @@ CFLAGS = -Wall
 all: server clean
 
 Controller.o: Controller.cpp
-	g++ -c Controller.cpp -O0
+	g++ -c Controller.cpp -O3
 
 IIODevice.o: IIODevice.cpp
-	g++ -c IIODevice.cpp -O0
+	g++ -c IIODevice.cpp -O3
 
 UDPServer.o: UDPServer.cpp
-	g++ -c UDPServer.cpp -O0
+	g++ -c UDPServer.cpp -O3
 
 main.o: main.cpp
-	g++ -c main.cpp -O0
+	g++ -c main.cpp -O3
 	
 server: main.o UDPServer.o IIODevice.o Controller.o
 	g++ Controller.o IIODevice.o UDPServer.o main.o -lad9361 -liio -lpthread -o Server

@@ -48,13 +48,13 @@ int main (int argc, char **argv)
 	// Start IIODevice
 	struct stream_cfg initRXConf;
 
-	initRXConf.bw_hz = MHZ(5); 
+	initRXConf.bw_hz = MHZ(1.4); 
 	initRXConf.lo_hz = GHZ(2.680005);
 	initRXConf.rfport = "A_BALANCED";
 
 	struct stream_cfg initTXConf;
 	
-	initTXConf.bw_hz = MHZ(5);
+	initTXConf.bw_hz = MHZ(1.4);
 	initTXConf.lo_hz = GHZ(2.560005);
 	initTXConf.rfport = "A";
 
@@ -63,7 +63,7 @@ int main (int argc, char **argv)
 
 	try
 	{
-	        iiodev = new IIODevice(DUMMYBUF_SIZE_BYTE/4,DUMMYBUF_SIZE_BYTE/4, initRXConf, initTXConf,MHZ(5.76),MHZ(5.76));
+	        iiodev = new IIODevice(DUMMYBUF_SIZE_BYTE/4,DUMMYBUF_SIZE_BYTE/4, initRXConf, initTXConf,MHZ(1.92),MHZ(1.92));
 		controller = new Controller(iiodev);
 		server = new UDPServer(commandPort,streamPort,controller);
 

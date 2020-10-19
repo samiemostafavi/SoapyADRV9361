@@ -500,25 +500,30 @@ void Controller::stop(enum iodev d)
 {
 	if(d==RX)
 	{
-		// Stop the rx streamer thread
-		rx_thread_active = false;
+		if(rx_thread_active)
+		{
+			// Stop the rx streamer thread
+			rx_thread_active = false;
 		
-		// Join thread
-        	pthread_cancel(rx_thread);
-	        pthread_join(rx_thread, NULL);
-	
+			// Join thread
+	        	pthread_cancel(rx_thread);
+	        	pthread_join(rx_thread, NULL);
+		}
 		dev->disableChannels(RX);
 	}
 	else if(d==TX)
 	{
-		// Stop the rx streamer thread
-		tx_thread_active = false;
+		if(tx_thread_active)
+		{
+			// Stop the rx streamer thread
+			tx_thread_active = false;
 		
-		// Force stop the tx streamer thread
-        	pthread_cancel(tx_thread);
-	        pthread_join(tx_thread, NULL);
-		
+			// Force stop the tx streamer thread
+        		pthread_cancel(tx_thread);
+	        	pthread_join(tx_thread, NULL);
+		}
 		dev->disableChannels(TX);
+		
 	}
 }
 
