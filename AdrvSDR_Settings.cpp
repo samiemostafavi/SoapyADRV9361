@@ -400,6 +400,41 @@ SoapySDR::RangeList SoapyAdrvSDR::getFrequencyRange( const int direction, const 
 }
 
 /*******************************************************************
+ * Hardware Timer API
+ ******************************************************************/
+
+void SoapyAdrvSDR::setTimerOffset(int64_t offset)
+{
+	stringstream gstream;
+	gstream << offset;
+	string offset_str = gstream.str();
+	
+	string req = "set tx timeroffset " + offset_str;
+        string res = udpc->sendCommand(req);
+	if(res.find("error") != string::npos)
+        {
+        	SoapySDR_logf(SOAPY_SDR_ERROR, res.c_str());
+                throw runtime_error(res);
+        }
+}
+
+uint64_t SoapyAdrvSDR::getHWTimestamp() const
+{
+        uint64_t val = 0;
+	string req = "get tx hwtimestamp";
+        string res = udpc->sendCommand(req);
+	if(res.find("error") != string::npos)
+        {
+                SoapySDR_logf(SOAPY_SDR_ERROR, res.c_str());
+                throw runtime_error(res);
+        }
+	istringstream iss(res);
+	iss >> val;
+
+	return val;
+}
+
+/*******************************************************************
  * Sample Rate API
  ******************************************************************/
 void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, const double samplerate )
@@ -419,8 +454,9 @@ void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, con
 				SoapySDR_logf(SOAPY_SDR_ERROR, "sample rate is not supported.");
 		}
 
-		string req = string("set rx samplerate ") + to_string((long long)samplerate);
-                res = udpc->sendCommand(req);
+		// FIXME
+		//string req = string("set rx samplerate ") + to_string((long long)samplerate);
+                //res = udpc->sendCommand(req);
 
 		if(res.find("error") != string::npos)
                 {
@@ -429,10 +465,6 @@ void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, con
                 }
 		
 		phandler->rxSamplingFrequency = samplerate;
-		
-		// FIXME
-		// if(rx_stream)
-		//	rx_stream->set_buffer_size_by_samplerate(samplerate);
 		
 		printf("[SoapyAdrv][setSampleRate] RX SamplingRate set to  %llu \n",samplerate);
 	}
@@ -447,9 +479,10 @@ void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, con
 			}
 		}
 		 
-		
-		string req = string("set tx samplerate ") + to_string((long long)samplerateN);
-                res = udpc->sendCommand(req);
+
+		// FIXME
+		//string req = string("set tx samplerate ") + to_string((long long)samplerateN);
+                //res = udpc->sendCommand(req);
 
                 if(res.find("error") != string::npos)
                 {
@@ -458,10 +491,6 @@ void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, con
                 }
 
                 phandler->txSamplingFrequency = samplerate;
-		
-		// FIXME
-		// if(tx_stream)
-		//	tx_stream->set_buffer_size_by_samplerate(samplerate);
 		
 		printf("[SoapyAdrv][setSampleRate] TX SamplingRate set to  %llu \n",samplerate);
 	}
@@ -473,6 +502,7 @@ void SoapyAdrvSDR::setSampleRate( const int direction, const size_t channel, con
 
 double SoapyAdrvSDR::getSampleRate( const int direction, const size_t channel ) const
 {
+	return 1920000.0;
 	string res;
 	if (direction == SOAPY_SDR_RX)
         {

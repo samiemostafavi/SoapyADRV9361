@@ -349,6 +349,16 @@ IIODevice::IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample,struct stre
         rx0_q = get_ad9361_stream_ch(ctx, RX, rx, 1);
         if(rx0_q == NULL)
                 throw runtime_error("Unable to get the tx stream channel q");
+	
+	txtiming_char_fd = open("/dev/txtiming", O_RDWR);
+        if(txtiming_char_fd == -1)
+                throw runtime_error("open txtiming char device failed.");
+        
+	const string tmp = "auto 300000 5"; // every 5 mins, 4 ms  (4 + 1 for the current cycle)
+        const char* buf = tmp.c_str();
+        int ret = pwrite(txtiming_char_fd, buf, strlen(buf), 0);
+	if(ret <= 0)
+		throw runtime_error("Could not write timer offset");
 }
 
 IIODevice::IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample) :
@@ -418,10 +428,22 @@ IIODevice::IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample) :
 	rx0_q = get_ad9361_stream_ch(ctx, RX, rx, 1);
 	if(rx0_q == NULL)
 		throw runtime_error("Unable to get the tx stream channel q");
+
+	txtiming_char_fd = open("/dev/txtiming", O_RDWR);
+        if(txtiming_char_fd == -1)
+                throw runtime_error("open txtiming char device failed.");
+
+	const string tmp = "auto 65000 2";
+        const char* buf = tmp.c_str();
+        int ret = pwrite(txtiming_char_fd, buf, strlen(buf), 0);
+	if(ret <= 0)
+		throw runtime_error("Could not write timer offset");
 }
 
 IIODevice::~IIODevice()
 {
+	close(txtiming_char_fd);
+
 	disableChannels(RX);
 	disableChannels(TX);
 
@@ -617,10 +639,11 @@ void IIODevice::setSamplingFrequency(enum iodev d,long long sf)
 	// Set if it is new
 	if(sf != ((d == RX) ? (rxSamplingFrequency) : (txSamplingFrequency)))
         {
-		if(ad9361_set_bb_rate(phy,(unsigned long)sf))
+                if(ad9361_set_bb_rate(phy,(unsigned long)sf))
                         throw runtime_error("Unable to set BB rate.");
-		
+                
 		wr_ch_lli(chn, "sampling_frequency", sf);
+
         }
 
         // update the member variables
@@ -804,3 +827,24 @@ void IIODevice::disableChannels(enum iodev d)
         }
 }
 
+void IIODevice::setTimerOffset(int64_t val)
+{
+	stringstream gstream;
+        gstream << val;
+        const string tmp = gstream.str();
+        const char* buf = tmp.c_str();
+        int ret = pwrite(txtiming_char_fd, buf, strlen(buf), 0);
+	if(ret <= 0)
+		throw runtime_error("Could not write timer offset");
+}
+
+uint64_t IIODevice::getHWTimestamp()
+{
+	uint64_t val = 0;
+	char buf[80];
+	int ret = pread(txtiming_char_fd, &buf, 80, 0);
+	if(ret <= 0)
+		throw runtime_error("Could not read hardware timestamp");
+        sscanf(buf, "%llu", &val);
+	return val;
+}

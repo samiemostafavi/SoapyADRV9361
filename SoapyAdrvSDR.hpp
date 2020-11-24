@@ -34,6 +34,9 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <iomanip>
+#include <ctime>
+#include <ratio>
+#include <chrono>
 
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Logger.hpp>
@@ -44,6 +47,7 @@
 #define MAXBUF_SIZE_BYTE 65535
 
 using namespace std;
+using namespace std::chrono;
 
 typedef enum plutosdrStreamFormat {
 	PLUTO_SDR_CF32,
@@ -123,9 +127,12 @@ class tx_streamer
 		int stop(const int flags,const long long timeNs=100000);
 	        size_t get_mtu_size() const { return mtu_size; }
         	pluto_handler_t* phandler;
+		int append_meta_data(uint64_t tx_timestamp,uint64_t tx_duration,uint32_t tx_flag,int tx_id_m, size_t tx_size);
+		int copy_samples(const void * const * buffs, int items, int items_in_buf_m);
 	private:
 		UDPClient* udpc;
 		int send_buf();
+		int tx_id;
 		const plutosdrStreamFormat format;
         	const size_t mtu_size;
 		size_t buffer_size;
@@ -253,6 +260,13 @@ class SoapyAdrvSDR : public SoapySDR::Device
 		SoapySDR::ArgInfoList getFrequencyArgsInfo(const int direction, const size_t channel) const;
 		std::vector<std::string> listFrequencies( const int direction, const size_t channel ) const;
 		SoapySDR::RangeList getFrequencyRange( const int direction, const size_t channel, const std::string &name ) const;
+
+		/*******************************************************************
+                 * Hardware Timer API
+                 ******************************************************************/
+
+		void setTimerOffset(int64_t offset);
+		uint64_t getHWTimestamp() const;
 
 		/*******************************************************************
 		 * Sample Rate API

@@ -250,16 +250,14 @@ int SoapyAdrvSDR::writeStream(SoapySDR::Stream *handle,const void * const *buffs
         	return SOAPY_SDR_NOT_SUPPORTED;
 }
 
-int64_t tmp = 0;
-
 int SoapyAdrvSDR::readStreamStatus(SoapySDR::Stream *stream,size_t &chanMask,int &flags,long long &timeNs,const long timeoutUs)
 {
 	//return SOAPY_SDR_NOT_SUPPORTED;
 	//printf("[SoapyAdrv] Monitoring %s for underflows/overflows\n",iio_device_get_name(dev));
 	//printf("[SoapyAdrv][rx_streamer] RX dif timestamp: %lld, TX dif timestamp: %lld \n",phandler->rxTimestampDif,phandler->txDifTimestampNS);
-	
+
 	sleep(5);
-	
+
 	// double underflows to string with precision
 	ostringstream streamObj;
 	streamObj << fixed;
@@ -392,7 +390,6 @@ void rx_streamer::set_buffer_size_by_samplerate(const size_t samplerate)
 }
 
 uint64_t rxidOffset;
-
 size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &flags, long long &timeNs, const long timeoutUs)
 {
 	// Clock frequency = 100 MHz
@@ -664,6 +661,9 @@ tx_streamer::tx_streamer(UDPClient* _udpc, const plutosdrStreamFormat _format, c
 	memset(&tx_buffer,0,MAXBUF_SIZE_BYTE);
 	items_in_buf = 0;
 
+	// Set id zero
+	tx_id=0;
+
 	// Enable timed transmissions	
 	fast_timestamp_en = true;
 }
@@ -710,22 +710,121 @@ int tx_streamer::stop(const int flags,const long long timeNs)
 	return 0;
 }
 
-int txId=0;
-unsigned long prevTime = 0;
-
-int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flags,const long long timeNs,const long timeoutUs )
+int tx_streamer::append_meta_data(uint64_t tx_timestamp,uint64_t tx_duration,uint32_t tx_flag,int tx_id_m, size_t tx_size)
 {
-	if(numElems < 20)
+	// Write metadata to the end of frame
+        
+	// Write TX timestamp
+        uint64_t* p_tx_timestamp = (uint64_t*)(tx_buffer+(buffer_size*4)-8);
+        *p_tx_timestamp = tx_timestamp;
+
+        //printf("tx ts_to_ns: %f, txSamplingFrequency: %d, timeNs: %llu, timestamp double: %f\n",ts_to_ns,phandler->txSamplingFrequency, timeNs,tmp);
+        //if(*p_tx_timestamp < 100000)
+        //printf("TX timestamp written: %llu\n",*p_tx_timestamp);
+
+        // Write frame duration
+        uint64_t* p_tx_duration = (uint64_t*)(tx_buffer+(buffer_size*4)-16);
+        *p_tx_duration = tx_duration;
+
+        // Write TX flag
+        uint32_t* p_tx_flag = (uint32_t*)(tx_buffer+(buffer_size*4)-24);
+        *p_tx_flag = tx_flag;
+
+        // Write TX id
+        uint16_t* p_tx_id = (uint16_t*)(p_tx_flag+1);
+        *p_tx_id = tx_id_m;
+
+        // Write the actual TX frame size
+        uint16_t* p_tx_size = p_tx_id+1;
+        *p_tx_size = tx_size;
+
+	// total size is 6 samples
+	return 6;
+}
+
+int tx_streamer::copy_samples(const void * const * buffs, int items, int items_in_buf_m)
+{
+	uint8_t *dst_ptr;
+        int buf_step = 4;
+
+        if (format == PLUTO_SDR_CS16)
+        {
+                //printf("tx_streamer::send direct_copy and PLUTO_SDR_CS16 \n");
+
+                // optimize for single TX, 2 channel (I/Q), same endianess direct copy
+                dst_ptr = (uint8_t *)tx_buffer + items_in_buf_m * 2 * sizeof(int16_t);
+
+                memcpy(dst_ptr, buffs[0], 2 * sizeof(int16_t) * items);
+        }
+        else if (format == PLUTO_SDR_CF32)
+        {
+                // By Samie
+                float* samples_cf32 = (float*) buffs[0];
+
+                // optimize for single TX, 2 channel (I/Q), same endianess direct copy
+                dst_ptr = (uint8_t *)tx_buffer + items_in_buf_m * 2 * sizeof(int16_t);
+
+                for (size_t j = 0; j < items; ++j)
+                {
+                        int16_t src_i = (int16_t)(samples_cf32[j*2] * 32767.999f); // 32767.999f (0x46ffffff) will ensure better distribution
+                        int16_t src_q = (int16_t)(samples_cf32[j*2+1] * 32767.999f); // 32767.999f (0x46ffffff) will ensure better distribution
+
+                        ((int16_t*)dst_ptr)[0] = src_i;
+                        ((int16_t*)dst_ptr)[1] = src_q;
+
+                        //printf("Items: %d, j: %d, Input samps: %f, %f - Output samps: %d, %d\n",items, j,samples_cf32[j*2],samples_cf32[j*2+1],src_i,src_q);
+
+                        dst_ptr += buf_step;
+                }
+
+        }
+	else if (format == PLUTO_SDR_CS12)
+        {
+                //printf("tx_streamer::send direct_copy and PLUTO_SDR_CS12 \n");
+
+                dst_ptr = (uint8_t *)tx_buffer + items_in_buf_m * 2 * sizeof(int16_t);
+                int8_t *samples_cs12 = (int8_t *)buffs[0];
+
+                for (size_t index = 0; index < items; ++index)
+                {
+                        // consume 24 bit (iiqIQQ)
+                        uint16_t src0 = uint16_t(*(samples_cs12++));
+                        uint16_t src1 = uint16_t(*(samples_cs12++));
+                        uint16_t src2 = uint16_t(*(samples_cs12++));
+                        // produce 2x 16 bit, note the output is MSB aligned, scale=32768
+                        // note: byte0 = i[11:4]; byte1 = {q[7:4], i[15:12]}; byte2 = q[15:8];
+                        *dst_ptr = int16_t((src1 << 12) | (src0 << 4));
+                        dst_ptr++;
+                        *dst_ptr = int16_t((src2 << 8) | (src1 & 0xf0));
+                        dst_ptr++;
+                }
+        }
+        else if (format == PLUTO_SDR_CS12)
+        {
+                SoapySDR_logf(SOAPY_SDR_ERROR, "CS12 not available with this endianess or channel layout");
+                throw std::runtime_error("CS12 not available with this endianess or channel layout");
+        }
+        else
+        {
+                SoapySDR_logf(SOAPY_SDR_ERROR, "Unknown TX format");
+                throw std::runtime_error("Unknown TX format");
+        }
+
+        return items;
+}
+
+unsigned long prevTime = 0;
+int tx_streamer::send(const void * const *buffs, const size_t numElems, int &flags, const long long timeNs, const long timeoutUs)
+{
+	if(numElems < 1)
 		return numElems;
+	
+	//if(numElems < 20)
+	//	cout << numElems << "- id:" << tx_id << endl;
 
 	// Keep 6 samples free at the end of the buffer for metadata
 	size_t buf_size_revised = buffer_size - 6; // Buf_size is the number of samples in the buffer. Metadata is 6 samples.
 	size_t items = std::min(buf_size_revised - items_in_buf, numElems);
-
-	double ts_to_ns = (double)TS_TO_NS;
-	int sampling_freq = phandler->txSamplingFrequency;
-	uint64_t tx_timestamp = ((double)timeNs)/((double)ts_to_ns);
-	uint64_t tx_duration = ((double)items*(double)1e9)/((double)sampling_freq*(double)ts_to_ns);
 
 	//struct timeval tv;
 	//gettimeofday(&tv,NULL);
@@ -733,104 +832,17 @@ int tx_streamer::send(	const void * const *buffs,const size_t numElems,int &flag
 	//SoapySDR_logf(SOAPY_SDR_INFO, "tx_streamer_send timeNs: %lld, buf_size: %d, items: %d, numElems: %d, id:%d, time:%lu , time_dif: %lu",timeNs, (int)buf_size_revised, (int)items, numElems,txId,time_in_micros,time_in_micros-prevTime);
 	//prevTime = time_in_micros;
 
-	uint8_t *dst_ptr;
-	int buf_step = 4;
-
-	if (format == PLUTO_SDR_CS16)
-	{
-		//printf("tx_streamer::send direct_copy and PLUTO_SDR_CS16 \n");
-		
-		// optimize for single TX, 2 channel (I/Q), same endianess direct copy
-		dst_ptr = (uint8_t *)tx_buffer + items_in_buf * 2 * sizeof(int16_t);
-
-		memcpy(dst_ptr, buffs[0], 2 * sizeof(int16_t) * items);
-	}
-	else if (format == PLUTO_SDR_CF32)
-	{
-		// By Samie
-		float* samples_cf32 = (float*) buffs[0];
-		
-		// optimize for single TX, 2 channel (I/Q), same endianess direct copy
-		dst_ptr = (uint8_t *)tx_buffer + items_in_buf * 2 * sizeof(int16_t);
+	items_in_buf += copy_samples(buffs,items,items_in_buf);
 	
-		for (size_t j = 0; j < items; ++j) 
-		{
-			int16_t src_i = (int16_t)(samples_cf32[j*2] * 32767.999f); // 32767.999f (0x46ffffff) will ensure better distribution
-			int16_t src_q = (int16_t)(samples_cf32[j*2+1] * 32767.999f); // 32767.999f (0x46ffffff) will ensure better distribution
-			
-			((int16_t*)dst_ptr)[0] = src_i;
-			((int16_t*)dst_ptr)[1] = src_q;
-			
-			//printf("Items: %d, j: %d, Input samps: %f, %f - Output samps: %d, %d\n",items, j,samples_cf32[j*2],samples_cf32[j*2+1],src_i,src_q);
+	double ts_to_ns = (double)TS_TO_NS;
+	int sampling_freq = phandler->txSamplingFrequency;
+	uint64_t tx_timestamp = ((double)timeNs)/((double)ts_to_ns);
+	uint64_t tx_duration = ((double)items*(double)1e9)/((double)sampling_freq*(double)ts_to_ns);
+	items_in_buf += append_meta_data(tx_timestamp,tx_duration,1234512345,tx_id,buf_size_revised - items);
 
-			dst_ptr += buf_step;
-		}
-		
-	}
-	else if (format == PLUTO_SDR_CS12) 
-	{
-		//printf("tx_streamer::send direct_copy and PLUTO_SDR_CS12 \n");
-
-		dst_ptr = (uint8_t *)tx_buffer + items_in_buf * 2 * sizeof(int16_t);
-		int8_t *samples_cs12 = (int8_t *)buffs[0];
-
-		for (size_t index = 0; index < items; ++index) 
-		{
-			// consume 24 bit (iiqIQQ)
-			uint16_t src0 = uint16_t(*(samples_cs12++));
-			uint16_t src1 = uint16_t(*(samples_cs12++));
-			uint16_t src2 = uint16_t(*(samples_cs12++));
-			// produce 2x 16 bit, note the output is MSB aligned, scale=32768
-			// note: byte0 = i[11:4]; byte1 = {q[7:4], i[15:12]}; byte2 = q[15:8];
-			*dst_ptr = int16_t((src1 << 12) | (src0 << 4));
-			dst_ptr++;
-			*dst_ptr = int16_t((src2 << 8) | (src1 & 0xf0));
-			dst_ptr++;
-		}
-	}
-	else if (format == PLUTO_SDR_CS12) 
-	{
-		SoapySDR_logf(SOAPY_SDR_ERROR, "CS12 not available with this endianess or channel layout");
-		throw std::runtime_error("CS12 not available with this endianess or channel layout");
-	}
-	else
-	{
-		SoapySDR_logf(SOAPY_SDR_ERROR, "Unknown TX format");
-                throw std::runtime_error("Unknown TX format");
-	}
-	
 	phandler->txTimestampNS = timeNs;
-	items_in_buf += items;
-
 	//SoapySDR_logf(SOAPY_SDR_INFO, "send_buf items_in_buf: %d, buf_size_revised: %d, timeNs: %llu",(int)items_in_buf,(int)buf_size_revised,phandler->txTimestampNS);
 	//SoapySDR_logf(SOAPY_SDR_INFO, "send_buf items_in_buf: %d, buf_size: %d\n",(int)items_in_buf,(int)buf_size_revised);
-
-	// Write metadata
-	// Write TX timestamp
-	uint64_t* p_tx_timestamp = (uint64_t*)(tx_buffer+(buffer_size*4)-8);
-	*p_tx_timestamp = tx_timestamp;
-		
-	//printf("tx ts_to_ns: %f, txSamplingFrequency: %d, timeNs: %llu, timestamp double: %f\n",ts_to_ns,phandler->txSamplingFrequency, timeNs,tmp);
-	//if(*p_tx_timestamp < 100000)
-	//printf("TX timestamp written: %llu\n",*p_tx_timestamp);
-			
-	// Write frame duration
-	uint64_t* p_tx_duration = (uint64_t*)(tx_buffer+(buffer_size*4)-16);
-	*p_tx_duration = tx_duration;
-			
-	// Write TX flag
-	uint32_t* p_tx_flag = (uint32_t*)(tx_buffer+(buffer_size*4)-24);
-        *p_tx_flag = 1234512345;
-
-	// Write TX id
-	uint16_t* p_tx_id = (uint16_t*)(p_tx_flag+1);
-        *p_tx_id = txId;
-
-	// Write the actual TX frame size
-	uint16_t* p_tx_size = p_tx_id+1;
-	*p_tx_size = buf_size_revised - items;
-		
-	items_in_buf += 6;
 
 	int ret = send_buf();
 	if (ret < 0) 
@@ -858,13 +870,11 @@ int tx_streamer::send_buf()
 			memset(buf_ptr, 0, buf_end - buf_ptr);
 		}
 			
-
-		//if(txId>500)
+		//if(tx_id>100)
 		//	return -1;
 
 		int ret = udpc->sendStreamBuffer(tx_buffer);
-		txId++;
-		
+		tx_id++;
 		items_in_buf = 0;
 
 		if (ret < 0)

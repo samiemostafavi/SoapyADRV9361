@@ -43,18 +43,19 @@ int main (int argc, char **argv)
 	if(CPU_ISSET(1,&cpuset))
 		cpuSetStr += "1";	
 
+	cout << "New" << endl;
 	cout << "PID of the main thread: " << ::getpid() << ", CPU: " << cpuSetStr << endl;
 
 	// Start IIODevice
 	struct stream_cfg initRXConf;
 
-	initRXConf.bw_hz = MHZ(1.4); 
+	initRXConf.bw_hz = MHZ(5); 
 	initRXConf.lo_hz = GHZ(2.680005);
 	initRXConf.rfport = "A_BALANCED";
 
 	struct stream_cfg initTXConf;
 	
-	initTXConf.bw_hz = MHZ(1.4);
+	initTXConf.bw_hz = MHZ(5);
 	initTXConf.lo_hz = GHZ(2.560005);
 	initTXConf.rfport = "A";
 
@@ -63,7 +64,7 @@ int main (int argc, char **argv)
 
 	try
 	{
-	        iiodev = new IIODevice(DUMMYBUF_SIZE_BYTE/4,DUMMYBUF_SIZE_BYTE/4, initRXConf, initTXConf,MHZ(1.92),MHZ(1.92));
+	        iiodev = new IIODevice(DUMMYBUF_SIZE_BYTE/4,DUMMYBUF_SIZE_BYTE/4, initRXConf, initTXConf,1920000,1920000);
 		controller = new Controller(iiodev);
 		server = new UDPServer(commandPort,streamPort,controller);
 
@@ -78,7 +79,6 @@ int main (int argc, char **argv)
 	shutdown(0);
 	return 0;
 }
-
 
 
 

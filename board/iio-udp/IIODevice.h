@@ -20,6 +20,15 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <stdexcept>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <sstream>
+
 
 #include <iio.h>
 //#include <ad9361.h>
@@ -69,7 +78,11 @@ class IIODevice
 		struct iio_channel* getTx0_i() { return tx0_i; }
 		struct iio_channel* getRx0_i() { return rx0_i; }
 		void setBufferSizeSample(enum iodev d,int size);
+		void setTimerOffset(int64_t val);
+		uint64_t getHWTimestamp();
 	private:
+		int txtiming_char_fd;
+
 		int rxBufferSizeSample;
 		int txBufferSizeSample;
 		

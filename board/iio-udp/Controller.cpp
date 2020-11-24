@@ -131,6 +131,17 @@ string Controller::runCommand(string cmdStr)
 
 				response = "done";
 			}
+			else if(vstrings[2]=="timeroffset")
+                        {
+                                // convert string to int64_t
+                                int64_t val;
+				sscanf(vstrings[3].c_str(),"%lld",&val);
+
+				// set timer offset
+				dev->setTimerOffset(val);	
+
+                                response = "done";
+                        }
 			else
 			{
 				throw runtime_error("wrong set command");
@@ -181,6 +192,14 @@ string Controller::runCommand(string cmdStr)
 				ss << conf.bw_hz;
 				response = ss.str();
 			}
+			else if(vstrings[2]=="hwtimestamp")
+                        {
+                                // get the hardware timestamp
+                                uint64_t ts = dev->getHWTimestamp();
+                                stringstream ss;
+                                ss << ts;
+                                response = ss.str();
+                        }
 			else if(vstrings[2]=="buffersize")
 			{
 				int val;
@@ -330,35 +349,6 @@ void* Controller::streamRX(void* controller)
 
 }
 
-int txId = 0;
-void generateDummyTXBuffer(char* tx_buffer,int buffer_size)
-{
-	uint64_t tx_duration = 100000;
-
-	// Write metadata
-        // Write TX timestamp
-        uint64_t* p_tx_timestamp = (uint64_t*)(tx_buffer+(buffer_size*4)-8);
-        *p_tx_timestamp = 0;
-
-	// Write frame duration
-        uint64_t* p_tx_duration = (uint64_t*)(tx_buffer+(buffer_size*4)-16);
-        *p_tx_duration = tx_duration;
-
-        // Write TX flag
-        uint32_t* p_tx_flag = (uint32_t*)(tx_buffer+(buffer_size*4)-24);
-        *p_tx_flag = 1234512345;
-
-        // Write TX id
-        uint16_t* p_tx_id = (uint16_t*)(p_tx_flag+1);
-        *p_tx_id = txId;
-
-        // Write the actual TX frame size
-        uint16_t* p_tx_size = p_tx_id+1;
-        *p_tx_size = 50;
-
-	txId++;
-}
-
 void* Controller::streamTX(void* controller)
 {
 	int ret = 0;
@@ -441,8 +431,6 @@ void* Controller::streamTX(void* controller)
         		if((ret < 0) || (ret != rxBufferSizeByte))
 		                throw runtime_error("Receiving the buffer from server faild");
 			
-			//generateDummyTXBuffer(buffer,rxBufferSizeByte/4);
-			
 			// Push the buffer only
 	                nbytes_tx = iio_buffer_push(txbuf);
         	        if (nbytes_tx < 0)
@@ -502,28 +490,27 @@ void Controller::stop(enum iodev d)
 	{
 		if(rx_thread_active)
 		{
+			// Force stop the rx streamer thread
+        		pthread_cancel(rx_thread);
+		        pthread_join(rx_thread, NULL);
+
 			// Stop the rx streamer thread
 			rx_thread_active = false;
-		
-			// Join thread
-	        	pthread_cancel(rx_thread);
-	        	pthread_join(rx_thread, NULL);
 		}
 		dev->disableChannels(RX);
 	}
 	else if(d==TX)
 	{
 		if(tx_thread_active)
-		{
-			// Stop the rx streamer thread
-			tx_thread_active = false;
-		
+		{	
 			// Force stop the tx streamer thread
         		pthread_cancel(tx_thread);
-	        	pthread_join(tx_thread, NULL);
+		        pthread_join(tx_thread, NULL);
+		
+			// Stop the rx streamer thread
+			tx_thread_active = false;
 		}
 		dev->disableChannels(TX);
-		
 	}
 }
 

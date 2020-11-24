@@ -10,7 +10,20 @@
 #include <SoapySDR/Logger.h>
 #include <Types.h>*/
 
+#include <sstream>
+#include <sys/time.h>
+#include <iomanip>
+#include <ctime>
+#include <ratio>
+#include <chrono>
+#include <iostream>
+#include <vector>
+#include <numeric>
+#include <string>
+#include <functional>
+
 using namespace std;
+using namespace std::chrono;
 
 #define WRITE_FILE 0
 
@@ -109,7 +122,38 @@ int main()
 		UDPClient* udpc = new UDPClient(50707,50708, "10.0.9.1",15*1024*4,15*1024*4);
 		string req;
 		string res;
+		vector<int64_t> offs;
 		
+		// get HW timestamp
+		req.clear(); res.clear();
+		req = "get tx hwtimestamp";
+		res = udpc->sendCommand(req);
+		cout << "Req: " << req << " - Res: " << res << endl;
+		
+		// set timer offset
+		req.clear(); res.clear();
+		req = "set tx timeroffset 12345123451234";
+		res = udpc->sendCommand(req);
+		cout << "Req: " << req << " - Res: " << res << endl;
+		
+		// get HW timestamp
+		req.clear(); res.clear();
+		req = "get tx hwtimestamp";
+		res = udpc->sendCommand(req);
+		cout << "Req: " << req << " - Res: " << res << endl;
+		
+		// set timer offset
+		req.clear(); res.clear();
+		req = "set tx timeroffset -12345123451234";
+		res = udpc->sendCommand(req);
+		cout << "Req: " << req << " - Res: " << res << endl;
+		
+		// get HW timestamp
+		req.clear(); res.clear();
+		req = "get tx hwtimestamp";
+		res = udpc->sendCommand(req);
+		cout << "Req: " << req << " - Res: " << res << endl;
+
 		// LO frequency TX
 		req.clear(); res.clear();
 		req = "get tx frequency";
