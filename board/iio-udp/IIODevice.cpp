@@ -433,7 +433,7 @@ IIODevice::IIODevice(int _rxBufferSizeSample,int _txBufferSizeSample) :
         if(txtiming_char_fd == -1)
                 throw runtime_error("open txtiming char device failed.");
 
-	const string tmp = "auto 65000 2";
+	const string tmp = "auto 300000 5";
         const char* buf = tmp.c_str();
         int ret = pwrite(txtiming_char_fd, buf, strlen(buf), 0);
 	if(ret <= 0)
