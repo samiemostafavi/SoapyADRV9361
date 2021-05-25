@@ -14,7 +14,15 @@
 #include "SoapyAdrvSDR.hpp"
 
 #define TS_TO_NS 10
-#define RX_STAT_FILE 1
+#define RX_STAT_FILE 0
+
+#define RX_SAMPLE_FILE 0	      // enable writing samples to file
+#if RX_SAMPLE_FILE
+int fileNum = 0;
+const unsigned long long file_bytes_size = 2ULL*8ULL*1922ULL*1024ULL*8ULL;  // 1920: a frame + 1: timestamp + 1:items 1024: 1 s 8: each sample bytes 8 seconds
+char file_bytes_array[file_bytes_size];
+unsigned long long file_bytes_counter = 0;
+#endif
 
 char rx_buffer[MAXBUF_SIZE_BYTE];
 char tx_buffer[MAXBUF_SIZE_BYTE];
@@ -91,7 +99,7 @@ SoapySDR::Stream *SoapyAdrvSDR::setupStream(const int direction, const std::stri
 {
 	//check the format
 	plutosdrStreamFormat streamFormat;
-	if (format == SOAPY_SDR_CF32) 
+	if (format == SOAPY_SDR_CF32)
 	{
 		SoapySDR_log(SOAPY_SDR_INFO, "Using format CF32.");
 		streamFormat = PLUTO_SDR_CF32;
@@ -360,6 +368,16 @@ rx_streamer::~rx_streamer()
 
         fclose(fpOut);
 #endif
+
+#if RX_SAMPLE_FILE
+	FILE* pFile;
+	string fileName = "/tmp/adrv_rxsamples_" + to_string(fileNum) + ".dat";
+	pFile = fopen(fileName.c_str(), "wb");
+	cout << "ADRV writing samples to file: " << fileName << endl;
+	fwrite(file_bytes_array, 1, file_bytes_size, pFile);
+    	fclose(pFile);
+	fileNum++;
+#endif
 }
 
 void rx_streamer::set_buffer_size_by_samplerate(const size_t samplerate) 
@@ -389,12 +407,12 @@ void rx_streamer::set_buffer_size_by_samplerate(const size_t samplerate)
     SoapySDR_logf(SOAPY_SDR_INFO, "Auto setting buffer size done");
 }
 
+
 uint64_t rxidOffset;
 size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &flags, long long &timeNs, const long timeoutUs)
 {
 	// Clock frequency = 100 MHz
 	double ts_to_ns = (double)TS_TO_NS;
-
 
 	// Clock frequency = 4*sampling frequency
 	//double ts_to_ns = (double)250000000/(double)phandler->rxSamplingFrequency;
@@ -482,7 +500,6 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
 			//{
 			//	cout << phandler->tx_sot_cmd << endl;
 			//}
-
 			
 			// timestamp reading is done
 			// modify the items_in_buffer number so the rest of the code doesnt take the timestamp
@@ -571,6 +588,17 @@ size_t rx_streamer::receive(void * const *buffs, const size_t numElems, int &fla
         uint64_t timeNs_sub = (double)(bytes_remain)/(double)4*evr;
         // printf("from SoapyAdrv reg_timeNs: %llu, byte_offset: %lu, bytes_remain: %lu, sampling_freq: %d, 4 bytes every: %lf ns\n",reg_timeNs,byte_offset,bytes_remain, sampling_freq,evr);
         timeNs = reg_timeNs - timeNs_sub;
+
+#if RX_SAMPLE_FILE
+	if(file_bytes_counter+(items+2)*8 > file_bytes_size)
+		file_bytes_counter = 0;
+
+	uint64_t uint64_items = items;
+	memcpy(&file_bytes_array[file_bytes_counter], &timeNs, 8);		//timestamp uint64_t
+	memcpy(&file_bytes_array[file_bytes_counter+8], &uint64_items, 8);	//number of items uint64_t
+	memcpy(&file_bytes_array[file_bytes_counter+16], buffs[0], items*8);	//samples: each item is 2 32 bits float
+	file_bytes_counter+=(items+2)*8;
+#endif
 	
 	//timeNs = reg_timeNs; 
 
@@ -818,7 +846,7 @@ int tx_streamer::send(const void * const *buffs, const size_t numElems, int &fla
 {
 	if(numElems < 1)
 		return numElems;
-	
+
 	//if(numElems < 20)
 	//	cout << numElems << "- id:" << tx_id << endl;
 

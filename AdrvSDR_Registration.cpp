@@ -22,12 +22,15 @@ static std::vector<SoapySDR::Kwargs> find_AdrvSDR(const SoapySDR::Kwargs &args)
 		hostname = "10.0.9.1";
 		cmdport = 50707;
 		strport = 50708;
+		
 		//rxbuffersize = 5760+6;
 		//txbuffersize = 5760+50+6;
+		
 		//rxbuffersize = 3840+6;
 		//txbuffersize = 3840+50+6;
+		
 		rxbuffersize = 1920+6;
-		txbuffersize = 1920+50+6;
+		txbuffersize = 1920+6;
 	} 
 	else
 	{ 
